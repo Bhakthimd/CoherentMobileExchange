@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inventory Units | CoherentMobiles Vendor</title>
+  <link rel="stylesheet" href="vendor.css">
+  <style>
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .filter-input {
+      padding: 9px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-md);
+      font-size: 13.5px;
+      background: #fff;
+    }
+    .status-toggle-btn {
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      transition: all 0.2s;
+    }
+    .status-toggle-btn:hover {
+      opacity: 0.8;
+      transform: scale(1.05);
+    }
+    /* Modal */
+    .modal-backdrop {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(15, 23, 42, 0.6);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+    .modal-box {
+      background: #fff;
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 500px;
+      padding: 28px;
+      box-shadow: var(--shadow-lg);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="vendor-layout">
+    <aside id="vendorSidebar" class="vendor-sidebar"></aside>
+
+    <main class="vendor-main">
+      <header id="vendorHeader" class="vendor-header"></header>
+
+      <div class="vendor-content">
+        <!-- Filter Controls -->
+        <div class="filter-bar">
+          <input type="text" id="searchInput" class="filter-input" placeholder="Search by model or IMEI..." style="flex:1; min-width:220px;" oninput="debounceSearch()">
+          
+          <select id="statusSelect" class="filter-input" onchange="loadInventory(1)">
+            <option value="">All Statuses</option>
+            <option value="in_stock">In Stock</option>
+            <option value="reserved">Reserved</option>
+            <option value="sold">Sold</option>
+            <option value="hidden">Hidden</option>
+          </select>
+
+          <select id="gradeSelect" class="filter-input" onchange="loadInventory(1)">
+            <option value="">All Grades</option>
+            <option value="like_new">Like New</option>
+            <option value="good">Good</option>
+            <option value="fair">Fair</option>
+          </select>
+
+          <a href="device-form.html" class="btn btn-primary">
+            <span>➕</span> Add Device
+          </a>
+        </div>
+
+        <!-- Inventory Table Card -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Inventory Units (<span id="totalUnitsCount">0</span>)</h2>
+              <p style="font-size:12.5px; color:var(--text-muted); margin-top:2px;">Each unit represents a unique IMEI handset listed for sale</p>
+            </div>
+            <div id="paginationControls" style="display:flex; align-items:center; gap:8px;"></div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="cm-table">
+              <thead>
+                <tr>
+                  <th>Device / Model</th>
+                  <th>IMEI Number</th>
+                  <th>Grade</th>
+                  <th>Battery</th>
+                  <th>Price / MRP</th>
+                  <th>Status & Storefront Visibility</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="inventoryTableBody">
+                <tr>
+                  <td colspan="7" style="text-align:center; padding:40px; color:var(--text-muted);">
+                    Loading inventory units...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Quick Edit Modal -->
+  <div id="editModal" class="modal-backdrop">
+    <div class="modal-box">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <h3 style="font-size:18px; font-weight:800;">Edit Device Unit</h3>
+        <button onclick="closeEditModal()" style="border:none; background:none; font-size:20px; cursor:pointer;">✕</button>
+      </div>
+
+      <form id="editUnitForm" onsubmit="handleSaveEdit(event)">
+        <input type="hidden" id="editUnitId">
+
+        <div class="form-group">
+          <label class="form-label">Device</label>
+          <input type="text" id="editDeviceName" class="form-control" disabled style="background:#f8fafc;">
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Selling Price (₹) *</label>
+            <input type="number" id="editPrice" class="form-control" required min="100">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Original MRP (₹)</label>
+            <input type="number" id="editMrp" class="form-control">
+          </div>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Condition Grade</label>
+            <select id="editGrade" class="form-control">
+              <option value="like_new">Like New</option>
+              <option value="good">Good</option>
+              <option value="fair">Fair</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Battery Health (%)</label>
+            <input type="number" id="editBattery" class="form-control" min="0" max="100">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Storefront Status</label>
+          <select id="editStatus" class="form-control">
+            <option value="in_stock">In Stock (Visible on Storefront)</option>
+            <option value="hidden">Hidden (Paused from Storefront)</option>
+            <option value="reserved">Reserved</option>
+            <option value="sold">Sold</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Vendor Notes</label>
+          <textarea id="editNotes" class="form-control" rows="2"></textarea>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:20px;">
+          <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+          <button type="submit" id="saveEditBtn" class="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="vendor.js"></script>
+  <script>
+    let currentPage = 1;
+    let searchTimeout = null;
+    let cachedUnits = {};
+
+    function debounceSearch() {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        loadInventory(1);
+      }, 350);
+    }
+
+    async function loadInventory(page = 1) {
+      currentPage = page;
+      const search = document.getElementById("searchInput").value.trim();
+      const status = document.getElementById("statusSelect").value;
+      const grade = document.getElementById("gradeSelect").value;
+      const tableBody = document.getElementById("inventoryTableBody");
+
+      const params = new URLSearchParams({
+        page: page,
+        per_page: 15
+      });
+      if (search) params.append("search", search);
+      if (status) params.append("status", status);
+      if (grade) params.append("grade", grade);
+
+      try {
+        const res = await fetch(`/api/vendor/inventory?${params.toString()}`, { credentials: "include" });
+        if (!res.ok) {
+          tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:30px; color:var(--danger);">Failed to load inventory.</td></tr>`;
+          return;
+        }
+
+        const data = await res.json();
+        const items = data.items || [];
+        document.getElementById("totalUnitsCount").textContent = data.total || 0;
+
+        cachedUnits = {};
+        items.forEach(u => cachedUnits[u.unit_id] = u);
+
+        if (items.length === 0) {
+          tableBody.innerHTML = `
+            <tr>
+              <td colspan="7" style="text-align:center; padding:50px; color:var(--text-muted);">
+                <span style="font-size:32px;">📱</span><br>
+                <strong>No inventory units match your filters.</strong><br>
+                <a href="device-form.html" class="btn btn-primary btn-sm" style="margin-top:12px;">+ Add New Unit</a>
+              </td>
+            </tr>
+          `;
+          document.getElementById("paginationControls").innerHTML = "";
+          return;
+        }
+
+        tableBody.innerHTML = items.map(u => {
+          const imgUrl = u.image || "/images/iphone15.jpg";
+          const gradeClass = `badge-grade-${(u.condition_grade || 'good').replace('_', '-')}`;
+          const isHidden = u.status === "hidden";
+          const isInStock = u.status === "in_stock";
+
+          return `
+            <tr>
+              <td>
+                <div class="device-cell">
+                  <img src="${imgUrl}" class="device-thumb" onerror="this.src='/images/iphone15.jpg'">
+                  <div>
+                    <div class="device-meta-title">${u.device_name || 'Smartphone'}</div>
+                    <div class="device-meta-specs">${u.storage || ''} ${u.ram ? '• ' + u.ram : ''} ${u.color ? '• ' + u.color : ''}</div>
+                  </div>
+                </div>
+              </td>
+              <td><code>${u.imei}</code></td>
+              <td><span class="badge ${gradeClass}">${(u.condition_grade || 'good').replace('_', ' ')}</span></td>
+              <td>${u.battery_health ? u.battery_health + '%' : '-'}</td>
+              <td>
+                <strong>${VendorApp.formatINR(u.selling_price)}</strong>
+                ${u.mrp ? `<div style="font-size:11px; color:var(--text-light); text-decoration:line-through;">${VendorApp.formatINR(u.mrp)}</div>` : ''}
+              </td>
+              <td>
+                <span class="badge badge-${u.status}">${u.status.replace('_', ' ')}</span>
+                ${(isInStock || isHidden) ? `
+                  <button class="status-toggle-btn" onclick="toggleStatus(${u.unit_id}, '${isInStock ? 'hidden' : 'in_stock'}')" title="Click to toggle storefront visibility">
+                    ${isInStock ? '👁️ Hide' : '👁️ Show'}
+                  </button>
+                ` : ''}
+              </td>
+              <td>
+                <div style="display:flex; gap:6px;">
+                  <button class="btn btn-secondary btn-sm" onclick="openEditModal(${u.unit_id})">✏️</button>
+                  <button class="btn btn-danger btn-sm" onclick="deleteUnit(${u.unit_id})">🗑️</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join("");
+
+        // Render Pagination
+        renderPagination(data.total, data.page, data.per_page, data.total_pages);
+
+      } catch (err) {
+        tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:30px; color:var(--danger);">Network error loading inventory.</td></tr>`;
+      }
+    }
+
+    function renderPagination(total, page, perPage, totalPages) {
+      const container = document.getElementById("paginationControls");
+      if (totalPages <= 1) {
+        container.innerHTML = "";
+        return;
+      }
+      container.innerHTML = `
+        <button class="btn btn-secondary btn-sm" ${page <= 1 ? 'disabled' : ''} onclick="loadInventory(${page - 1})">← Prev</button>
+        <span style="font-size:13px; font-weight:600; color:var(--text-muted);">Page ${page} of ${totalPages}</span>
+        <button class="btn btn-secondary btn-sm" ${page >= totalPages ? 'disabled' : ''} onclick="loadInventory(${page + 1})">Next →</button>
+      `;
+    }
+
+    async function toggleStatus(unitId, newStatus) {
+      try {
+        const res = await fetch(`/api/vendor/inventory/${unitId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ status: newStatus })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          VendorApp.showToast(`Unit status updated to ${newStatus}. Storefront refreshed.`);
+          loadInventory(currentPage);
+        } else {
+          VendorApp.showToast(data.error || "Failed to update unit status.", false);
+        }
+      } catch (err) {
+        VendorApp.showToast("Network error updating status.", false);
+      }
+    }
+
+    function openEditModal(unitId) {
+      const u = cachedUnits[unitId];
+      if (!u) return;
+
+      document.getElementById("editUnitId").value = u.unit_id;
+      document.getElementById("editDeviceName").value = `${u.device_name} (${u.imei})`;
+      document.getElementById("editPrice").value = u.selling_price;
+      document.getElementById("editMrp").value = u.mrp || "";
+      document.getElementById("editGrade").value = u.condition_grade;
+      document.getElementById("editBattery").value = u.battery_health || "";
+      document.getElementById("editStatus").value = u.status;
+      document.getElementById("editNotes").value = u.notes || "";
+
+      document.getElementById("editModal").style.display = "flex";
+    }
+
+    function closeEditModal() {
+      document.getElementById("editModal").style.display = "none";
+    }
+
+    async function handleSaveEdit(e) {
+      e.preventDefault();
+      const unitId = document.getElementById("editUnitId").value;
+      const payload = {
+        selling_price: parseFloat(document.getElementById("editPrice").value),
+        mrp: document.getElementById("editMrp").value ? parseFloat(document.getElementById("editMrp").value) : null,
+        condition_grade: document.getElementById("editGrade").value,
+        battery_health: document.getElementById("editBattery").value ? parseInt(document.getElementById("editBattery").value) : null,
+        status: document.getElementById("editStatus").value,
+        notes: document.getElementById("editNotes").value.trim()
+      };
+
+      const btn = document.getElementById("saveEditBtn");
+      btn.disabled = true;
+      btn.textContent = "Saving...";
+
+      try {
+        const res = await fetch(`/api/vendor/inventory/${unitId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          VendorApp.showToast("Device details updated successfully!");
+          closeEditModal();
+          loadInventory(currentPage);
+        } else {
+          alert(data.error || "Failed to update device.");
+        }
+      } catch (err) {
+        alert("Network error updating device.");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Save Changes";
+      }
+    }
+
+    async function deleteUnit(unitId) {
+      if (!confirm("Are you sure you want to delete this inventory unit? This will soft-delete the unit and remove it from the storefront.")) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/vendor/inventory/${unitId}`, {
+          method: "DELETE",
+          credentials: "include"
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          VendorApp.showToast("Inventory unit removed successfully.");
+          loadInventory(currentPage);
+        } else {
+          VendorApp.showToast(data.error || "Failed to delete unit.", false);
+        }
+      } catch (err) {
+        VendorApp.showToast("Network error deleting unit.", false);
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      await VendorApp.init("inventory", "Inventory Units", "Search, filter, edit prices, and manage storefront status");
+      loadInventory(1);
+    });
+  </script>
+</body>
+</html>

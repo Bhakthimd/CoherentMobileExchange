@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Customer Orders | CoherentMobiles Vendor</title>
+  <link rel="stylesheet" href="vendor.css">
+  <style>
+    .status-select {
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      background: #fff;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="vendor-layout">
+    <aside id="vendorSidebar" class="vendor-sidebar"></aside>
+
+    <main class="vendor-main">
+      <header id="vendorHeader" class="vendor-header"></header>
+
+      <div class="vendor-content">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Customer Orders For Your Devices (<span id="ordersCount">0</span>)</h2>
+              <p style="font-size:12.5px; color:var(--text-muted); margin-top:2px;">Track delivery fulfillment status and customer shipments</p>
+            </div>
+            <select id="filterStatus" class="form-control" style="width:180px;" onchange="renderOrders()">
+              <option value="">All Fulfillment Statuses</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="packed">Packed</option>
+              <option value="shipped">Shipped</option>
+              <option value="delivered">Delivered</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+
+          <div class="table-responsive">
+            <table class="cm-table">
+              <thead>
+                <tr>
+                  <th>Order Ref</th>
+                  <th>Device / Grade</th>
+                  <th>IMEI</th>
+                  <th>Customer & Address</th>
+                  <th>Price</th>
+                  <th>Fulfillment Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="ordersTableBody">
+                <tr>
+                  <td colspan="7" style="text-align:center; padding:40px; color:var(--text-muted);">
+                    Loading customer orders...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="vendor.js"></script>
+  <script>
+    let allOrders = [];
+
+    async function fetchOrders() {
+      const tableBody = document.getElementById("ordersTableBody");
+      try {
+        const res = await fetch("/api/vendor/orders", { credentials: "include" });
+        if (!res.ok) {
+          tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:30px; color:var(--danger);">Failed to load orders.</td></tr>`;
+          return;
+        }
+
+        const data = await res.json();
+        allOrders = data.orders || [];
+        document.getElementById("ordersCount").textContent = allOrders.length;
+        renderOrders();
+      } catch (err) {
+        tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:30px; color:var(--danger);">Network error loading orders.</td></tr>`;
+      }
+    }
+
+    function renderOrders() {
+      const filter = document.getElementById("filterStatus").value;
+      const filtered = filter ? allOrders.filter(o => o.item_status === filter) : allOrders;
+      const tableBody = document.getElementById("ordersTableBody");
+
+      if (filtered.length === 0) {
+        tableBody.innerHTML = `
+          <tr>
+            <td colspan="7" style="text-align:center; padding:48px; color:var(--text-muted);">
+              <span style="font-size:32px;">📦</span><br>
+              <strong>No customer orders found.</strong>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tableBody.innerHTML = filtered.map(item => `
+        <tr>
+          <td>
+            <strong>${item.order_reference || 'CM-ORD'}</strong>
+            <div style="font-size:11px; color:var(--text-muted);">${VendorApp.formatDate(item.created_at)}</div>
+          </td>
+          <td>
+            <div style="font-weight:700;">${item.device_name || 'Device'}</div>
+            <span class="badge badge-grade-${(item.condition_grade || 'good').replace('_', '-')}">${(item.condition_grade || 'good').replace('_', ' ')}</span>
+          </td>
+          <td><code>${item.imei || '-'}</code></td>
+          <td>
+            <div style="font-weight:600;">${item.customer_name || 'Customer'}</div>
+            <div style="font-size:12px; color:var(--text-muted);">${item.delivery_address || '-'}</div>
+            ${item.customer_phone ? `<div style="font-size:11px; color:var(--text-light);">📞 ${item.customer_phone}</div>` : ''}
+          </td>
+          <td><strong>${VendorApp.formatINR(item.price)}</strong></td>
+          <td>
+            <span class="badge badge-${item.item_status}">${item.item_status}</span>
+          </td>
+          <td>
+            <select class="status-select" onchange="updateStatus(${item.order_item_id}, this.value)">
+              <option value="confirmed" ${item.item_status === 'confirmed' ? 'selected' : ''}>Confirmed</option>
+              <option value="packed" ${item.item_status === 'packed' ? 'selected' : ''}>Packed</option>
+              <option value="shipped" ${item.item_status === 'shipped' ? 'selected' : ''}>Shipped</option>
+              <option value="delivered" ${item.item_status === 'delivered' ? 'selected' : ''}>Delivered</option>
+              <option value="cancelled" ${item.item_status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+            </select>
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    async function updateStatus(itemId, newStatus) {
+      try {
+        const res = await fetch(`/api/vendor/orders/${itemId}/status`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ status: newStatus })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          VendorApp.showToast(`Order status updated to ${newStatus}.`);
+          fetchOrders();
+        } else {
+          VendorApp.showToast(data.error || "Failed to update status.", false);
+        }
+      } catch (err) {
+        VendorApp.showToast("Network error updating order status.", false);
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      await VendorApp.init("orders", "Customer Orders", "Fulfill orders placed by marketplace customers for your devices");
+      fetchOrders();
+    });
+  </script>
+</body>
+</html>

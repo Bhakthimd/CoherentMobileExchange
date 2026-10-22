@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Add / Edit Device | CoherentMobiles Vendor</title>
+  <link rel="stylesheet" href="vendor.css">
+  <style>
+    .form-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      box-shadow: var(--shadow-sm);
+      max-width: 800px;
+    }
+    .imei-feedback {
+      font-size: 12px;
+      font-weight: 700;
+      margin-top: 6px;
+      display: none;
+    }
+    .imei-feedback.valid {
+      color: var(--success);
+      display: block;
+    }
+    .imei-feedback.invalid {
+      color: var(--danger);
+      display: block;
+    }
+    .drop-zone {
+      border: 2px dashed #cbd5e1;
+      border-radius: var(--radius-md);
+      padding: 28px;
+      text-align: center;
+      background: #f8fafc;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .drop-zone:hover {
+      border-color: var(--primary);
+      background: var(--primary-soft);
+    }
+    .image-preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .preview-thumb {
+      width: 100%;
+      height: 90px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="vendor-layout">
+    <aside id="vendorSidebar" class="vendor-sidebar"></aside>
+
+    <main class="vendor-main">
+      <header id="vendorHeader" class="vendor-header"></header>
+
+      <div class="vendor-content">
+        <div class="form-card">
+          <div style="margin-bottom: 24px;">
+            <h2 style="font-size: 20px; font-weight:800; color:var(--text-main);">List a Refurbished Device</h2>
+            <p style="font-size: 13px; color:var(--text-muted);">Fill in handset specifications, verified IMEI, condition metrics, and product photos.</p>
+          </div>
+
+          <div id="formAlert" style="display:none;" class="alert-banner alert-danger"></div>
+
+          <form id="deviceForm" onsubmit="handleSubmitDevice(event)">
+            <!-- Cascading Hierarchy: Brand -> Model -> Storage/Variant -->
+            <div class="form-grid-3">
+              <div class="form-group">
+                <label class="form-label" for="brandSelect">Brand *</label>
+                <select id="brandSelect" class="form-control" onchange="handleBrandChange()" required>
+                  <option value="">Select Brand...</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="modelSelect">Model *</label>
+                <select id="modelSelect" class="form-control" onchange="handleModelChange()" required disabled>
+                  <option value="">Select Model...</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="variantSelect">Storage & Color *</label>
+                <select id="variantSelect" class="form-control" required disabled>
+                  <option value="">Select Storage & Color...</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Custom Model Override fallback (if user has a model not in presets) -->
+            <div id="customOverrideBox" style="display:none; background:#f8fafc; padding:14px; border-radius:8px; margin-bottom:18px;">
+              <div class="form-grid-3">
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label">Custom Brand Name</label>
+                  <input type="text" id="customBrandInput" class="form-control" placeholder="e.g. Motorola">
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label">Custom Model Name</label>
+                  <input type="text" id="customModelInput" class="form-control" placeholder="e.g. Edge 50 Ultra">
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label">Storage (GB)</label>
+                  <input type="number" id="customStorageInput" class="form-control" value="128">
+                </div>
+              </div>
+            </div>
+
+            <!-- IMEI with real-time Luhn Check -->
+            <div class="form-group">
+              <label class="form-label" for="imeiInput">15-Digit Device IMEI *</label>
+              <input type="text" id="imeiInput" class="form-control" placeholder="Enter 15-digit IMEI (e.g. 358742110000010)" maxlength="15" oninput="handleIMEIInput()" required>
+              <div id="imeiFeedback" class="imei-feedback"></div>
+            </div>
+
+            <!-- Condition, Battery, Warranty -->
+            <div class="form-grid-3">
+              <div class="form-group">
+                <label class="form-label" for="gradeSelect">Condition Grade *</label>
+                <select id="gradeSelect" class="form-control" required>
+                  <option value="like_new">Like New (Flawless / Mint)</option>
+                  <option value="good" selected>Good (Minor micro-scratches)</option>
+                  <option value="fair">Fair (Visible signs of usage)</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="batteryHealthInput">Battery Health (%)</label>
+                <input type="number" id="batteryHealthInput" class="form-control" min="0" max="100" placeholder="e.g. 94" value="95">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="warrantySelect">Store Warranty</label>
+                <select id="warrantySelect" class="form-control">
+                  <option value="3">3 Months Warranty</option>
+                  <option value="6" selected>6 Months Warranty</option>
+                  <option value="12">12 Months Full Warranty</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Pricing & MRP -->
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label class="form-label" for="priceInput">Your Selling Price (₹) *</label>
+                <input type="number" id="priceInput" class="form-control" placeholder="e.g. 64999" min="100" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="mrpInput">Original New MRP (₹)</label>
+                <input type="number" id="mrpInput" class="form-control" placeholder="e.g. 79999">
+              </div>
+            </div>
+
+            <!-- Notes -->
+            <div class="form-group">
+              <label class="form-label" for="notesInput">Inspection & Certification Notes</label>
+              <textarea id="notesInput" class="form-control" rows="2" placeholder="e.g. Tested with 32-point hardware diagnostic. Original charging cable included."></textarea>
+            </div>
+
+            <!-- Multi-Image Upload with Preview -->
+            <div class="form-group">
+              <label class="form-label">Device Photos (JPG, PNG, WEBP — Max 6 images, up to 5MB each)</label>
+              <div class="drop-zone" onclick="document.getElementById('fileUploadInput').click()">
+                <span style="font-size:28px;">📷</span>
+                <div style="font-weight:700; margin-top:4px;">Click or Drag Photos Here</div>
+                <div style="font-size:12px; color:var(--text-muted);">Real photos of the handset build customer trust</div>
+              </div>
+              <input type="file" id="fileUploadInput" multiple accept="image/png, image/jpeg, image/webp" style="display:none;" onchange="handleImageSelection(event)">
+              <div id="imagePreviewContainer" class="image-preview-grid"></div>
+            </div>
+
+            <!-- Submit Button -->
+            <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:28px;">
+              <a href="inventory.html" class="btn btn-secondary">Cancel</a>
+              <button type="submit" id="submitDeviceBtn" class="btn btn-primary" style="padding:10px 24px;">
+                Publish Device to Storefront
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="vendor.js"></script>
+  <script>
+    let selectedFiles = [];
+    let brandsCatalog = [];
+    let modelsCatalog = [];
+
+    async function loadCatalogData() {
+      try {
+        const res = await fetch("/api/brands");
+        if (res.ok) {
+          const data = await res.json();
+          brandsCatalog = data.brands || [];
+          const select = document.getElementById("brandSelect");
+          select.innerHTML = `<option value="">Select Brand...</option>` +
+            brandsCatalog.map(b => `<option value="${b.brand_name}">${b.brand_name}</option>`).join("") +
+            `<option value="__CUSTOM__">+ Other Brand...</option>`;
+        }
+      } catch (e) {
+        console.error("Error loading brands:", e);
+      }
+    }
+
+    async function handleBrandChange() {
+      const brandVal = document.getElementById("brandSelect").value;
+      const modelSelect = document.getElementById("modelSelect");
+      const variantSelect = document.getElementById("variantSelect");
+      const customBox = document.getElementById("customOverrideBox");
+
+      if (brandVal === "__CUSTOM__") {
+        customBox.style.display = "block";
+        modelSelect.disabled = true;
+        variantSelect.disabled = true;
+        return;
+      }
+
+      customBox.style.display = "none";
+      if (!brandVal) {
+        modelSelect.disabled = true;
+        modelSelect.innerHTML = `<option value="">Select Model...</option>`;
+        variantSelect.disabled = true;
+        variantSelect.innerHTML = `<option value="">Select Storage & Color...</option>`;
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/models?brand=${encodeURIComponent(brandVal)}`);
+        const data = await res.json();
+        modelsCatalog = data.models || [];
+        modelSelect.disabled = false;
+        modelSelect.innerHTML = `<option value="">Select Model...</option>` +
+          modelsCatalog.map(m => `<option value="${m.model_name}" data-model-id="${m.model_id}">${m.model_name}</option>`).join("") +
+          `<option value="__CUSTOM_MODEL__">+ Other Model...</option>`;
+      } catch (e) {
+        console.error("Error loading models:", e);
+      }
+    }
+
+    async function handleModelChange() {
+      const modelSelect = document.getElementById("modelSelect");
+      const modelVal = modelSelect.value;
+      const variantSelect = document.getElementById("variantSelect");
+      const customBox = document.getElementById("customOverrideBox");
+
+      if (modelVal === "__CUSTOM_MODEL__") {
+        customBox.style.display = "block";
+        variantSelect.disabled = true;
+        return;
+      }
+
+      if (!modelVal) {
+        variantSelect.disabled = true;
+        variantSelect.innerHTML = `<option value="">Select Storage & Color...</option>`;
+        return;
+      }
+
+      const selectedOpt = modelSelect.options[modelSelect.selectedIndex];
+      const modelId = selectedOpt.getAttribute("data-model-id");
+
+      if (modelId) {
+        try {
+          const res = await fetch(`/api/variants?model_id=${modelId}`);
+          const data = await res.json();
+          const variants = data.variants || [];
+          variantSelect.disabled = false;
+          if (variants.length > 0) {
+            variantSelect.innerHTML = variants.map(v => `
+              <option value="${v.storage_gb}" data-storage="${v.storage_gb}" data-ram="${v.ram_gb}" data-color="${v.color || 'Standard'}">
+                ${v.storage_gb} GB • ${v.ram_gb} GB RAM • ${v.color || 'Standard'}
+              </option>
+            `).join("");
+          } else {
+            variantSelect.innerHTML = `
+              <option value="128" data-storage="128" data-ram="8" data-color="Black">128 GB • 8 GB RAM • Black</option>
+              <option value="256" data-storage="256" data-ram="8" data-color="White">256 GB • 8 GB RAM • White</option>
+              <option value="512" data-storage="512" data-ram="12" data-color="Titanium">512 GB • 12 GB RAM • Titanium</option>
+            `;
+          }
+        } catch (e) {
+          variantSelect.disabled = false;
+        }
+      }
+    }
+
+    function handleIMEIInput() {
+      const imeiInput = document.getElementById("imeiInput");
+      const feedback = document.getElementById("imeiFeedback");
+      const val = imeiInput.value.trim();
+
+      if (val.length === 0) {
+        feedback.className = "imei-feedback";
+        feedback.textContent = "";
+        return;
+      }
+
+      if (val.length === 15) {
+        const isValid = VendorApp.validateLuhn(val);
+        if (isValid) {
+          feedback.className = "imei-feedback valid";
+          feedback.textContent = "✓ Valid 15-digit IMEI (Luhn check passed)";
+        } else {
+          feedback.className = "imei-feedback invalid";
+          feedback.textContent = "✗ Invalid IMEI checksum. Please verify the digits.";
+        }
+      } else {
+        feedback.className = "imei-feedback invalid";
+        feedback.textContent = `Must be exactly 15 digits (currently ${val.length}/15)`;
+      }
+    }
+
+    function handleImageSelection(event) {
+      const files = Array.from(event.target.files);
+      selectedFiles = files.slice(0, 6);
+      const container = document.getElementById("imagePreviewContainer");
+      container.innerHTML = "";
+
+      selectedFiles.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = document.createElement("img");
+          img.src = e.target.result;
+          img.className = "preview-thumb";
+          container.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function handleSubmitDevice(e) {
+      e.preventDefault();
+      const alertEl = document.getElementById("formAlert");
+      const submitBtn = document.getElementById("submitDeviceBtn");
+      alertEl.style.display = "none";
+
+      const imei = document.getElementById("imeiInput").value.trim();
+      if (!VendorApp.validateLuhn(imei)) {
+        alertEl.textContent = "Please enter a valid 15-digit IMEI number with correct Luhn check digit.";
+        alertEl.style.display = "flex";
+        return;
+      }
+
+      let brand = document.getElementById("brandSelect").value;
+      let model = document.getElementById("modelSelect").value;
+      let storage = 128;
+      let ram = 8;
+      let color = "Standard";
+
+      const customBox = document.getElementById("customOverrideBox");
+      if (customBox.style.display === "block" || brand === "__CUSTOM__") {
+        brand = document.getElementById("customBrandInput").value.trim() || "Brand";
+        model = document.getElementById("customModelInput").value.trim() || "Smartphone";
+        storage = parseInt(document.getElementById("customStorageInput").value) || 128;
+      } else {
+        const variantSelect = document.getElementById("variantSelect");
+        const selectedVar = variantSelect.options[variantSelect.selectedIndex];
+        if (selectedVar) {
+          storage = selectedVar.getAttribute("data-storage") || 128;
+          ram = selectedVar.getAttribute("data-ram") || 8;
+          color = selectedVar.getAttribute("data-color") || "Standard";
+        }
+      }
+
+      const price = parseFloat(document.getElementById("priceInput").value);
+      const mrp = document.getElementById("mrpInput").value ? parseFloat(document.getElementById("mrpInput").value) : null;
+      const grade = document.getElementById("gradeSelect").value;
+      const battery = document.getElementById("batteryHealthInput").value ? parseInt(document.getElementById("batteryHealthInput").value) : null;
+      const warranty = parseInt(document.getElementById("warrantySelect").value);
+      const notes = document.getElementById("notesInput").value.trim();
+
+      const formData = new FormData();
+      formData.append("brand", brand);
+      formData.append("model", model);
+      formData.append("storage_gb", storage);
+      formData.append("ram_gb", ram);
+      formData.append("color", color);
+      formData.append("imei", imei);
+      formData.append("selling_price", price);
+      if (mrp) formData.append("mrp", mrp);
+      formData.append("condition_grade", grade);
+      if (battery !== null) formData.append("battery_health", battery);
+      formData.append("warranty_months", warranty);
+      formData.append("notes", notes);
+      formData.append("status", "in_stock");
+
+      selectedFiles.forEach(file => {
+        formData.append("images", file);
+      });
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Publishing to Storefront...";
+
+      try {
+        const res = await fetch("/api/vendor/inventory", {
+          method: "POST",
+          credentials: "include",
+          body: formData
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          VendorApp.showToast("Device registered and published to public storefront!");
+          setTimeout(() => {
+            window.location.href = "inventory.html";
+          }, 1200);
+        } else {
+          alertEl.textContent = data.error || "Failed to publish device.";
+          alertEl.style.display = "flex";
+        }
+      } catch (err) {
+        alertEl.textContent = "Network error. Please try again.";
+        alertEl.style.display = "flex";
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Publish Device to Storefront";
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      await VendorApp.init("device-form", "Add Refurbished Device", "Register individual IMEI handsets with specs & condition certification");
+      loadCatalogData();
+    });
+  </script>
+</body>
+</html>

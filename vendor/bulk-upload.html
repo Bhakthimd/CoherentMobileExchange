@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bulk Upload Inventory | CoherentMobiles Vendor</title>
+  <link rel="stylesheet" href="vendor.css">
+  <style>
+    .upload-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      box-shadow: var(--shadow-sm);
+    }
+    .drop-box {
+      border: 2px dashed #cbd5e1;
+      border-radius: var(--radius-lg);
+      padding: 48px 24px;
+      text-align: center;
+      background: #f8fafc;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-bottom: 24px;
+    }
+    .drop-box:hover, .drop-box.dragover {
+      border-color: var(--primary);
+      background: var(--primary-soft);
+    }
+    .error-box {
+      background: #fef2f2;
+      border: 1.5px solid #fecaca;
+      border-radius: var(--radius-md);
+      padding: 20px;
+      margin-top: 24px;
+      display: none;
+    }
+    .error-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 13px;
+    }
+    .error-table th, .error-table td {
+      padding: 8px 12px;
+      border: 1px solid #fecaca;
+      text-align: left;
+    }
+    .error-table th {
+      background: #fee2e2;
+      color: #991b1b;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="vendor-layout">
+    <aside id="vendorSidebar" class="vendor-sidebar"></aside>
+
+    <main class="vendor-main">
+      <header id="vendorHeader" class="vendor-header"></header>
+
+      <div class="vendor-content">
+        <div class="upload-card">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px; flex-wrap:wrap; gap:16px;">
+            <div>
+              <h2 style="font-size:20px; font-weight:800; color:var(--text-main);">Bulk CSV Inventory Ingestion</h2>
+              <p style="font-size:13px; color:var(--text-muted);">Import dozens or hundreds of verified handset IMEI records in one batch.</p>
+            </div>
+            <a href="/api/vendor/inventory/template.csv" class="btn btn-secondary">
+              <span>📥</span> Download Sample Template (.csv)
+            </a>
+          </div>
+
+          <!-- Drag and Drop Zone -->
+          <div id="dropZone" class="drop-box" onclick="document.getElementById('csvFileInput').click()">
+            <span style="font-size:42px;">📁</span>
+            <h3 style="font-size:16px; font-weight:800; margin-top:8px;" id="dropText">Choose a CSV file or drag & drop it here</h3>
+            <p style="font-size:13px; color:var(--text-muted); margin-top:4px;">Supported columns: brand, model, storage_gb, imei, condition_grade, battery_health, selling_price, mrp, warranty_months</p>
+          </div>
+          <input type="file" id="csvFileInput" accept=".csv" style="display:none;" onchange="handleFileSelected(event)">
+
+          <!-- Preview Section -->
+          <div id="previewCard" style="display:none; margin-bottom:24px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+              <h3 style="font-size:15px; font-weight:800;">CSV Preview (<span id="previewCount">0</span> rows detected)</h3>
+              <button id="uploadBtn" class="btn btn-primary" onclick="submitCSVUpload()">
+                <span>🚀</span> Upload & Verify All Rows
+              </button>
+            </div>
+            <div class="table-responsive" style="max-height:300px; border:1px solid var(--border); border-radius:8px;">
+              <table class="cm-table" id="previewTable">
+                <thead id="previewThead"></thead>
+                <tbody id="previewTbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Error Report Section -->
+          <div id="errorReport" class="error-box">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:20px;">⚠️</span>
+              <strong style="color:#991b1b; font-size:15px;">Row Validation Error Report</strong>
+            </div>
+            <p style="font-size:13px; color:#991b1b; margin-top:4px;">
+              The following rows could not be imported due to validation errors (e.g. invalid Luhn IMEI, duplicate IMEI, or missing fields):
+            </p>
+            <table class="error-table">
+              <thead>
+                <tr>
+                  <th>CSV Row #</th>
+                  <th>IMEI</th>
+                  <th>Reason / Error Message</th>
+                </tr>
+              </thead>
+              <tbody id="errorTableBody"></tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="vendor.js"></script>
+  <script>
+    let selectedCSVFile = null;
+
+    const dropZone = document.getElementById("dropZone");
+    dropZone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropZone.classList.add("dragover");
+    });
+    dropZone.addEventListener("dragleave", () => {
+      dropZone.classList.remove("dragover");
+    });
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("dragover");
+      if (e.dataTransfer.files.length > 0) {
+        processFile(e.dataTransfer.files[0]);
+      }
+    });
+
+    function handleFileSelected(e) {
+      if (e.target.files.length > 0) {
+        processFile(e.target.files[0]);
+      }
+    }
+
+    function processFile(file) {
+      if (!file.name.endsWith(".csv")) {
+        alert("Please select a valid CSV file.");
+        return;
+      }
+      selectedCSVFile = file;
+      document.getElementById("dropText").textContent = `Selected: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        parseAndPreviewCSV(e.target.result);
+      };
+      reader.readAsText(file);
+    }
+
+    function parseAndPreviewCSV(text) {
+      const lines = text.trim().split("\n");
+      if (lines.length < 2) return;
+
+      const headers = lines[0].split(",").map(h => h.trim());
+      const rows = lines.slice(1, 11).map(line => line.split(",").map(c => c.trim()));
+
+      document.getElementById("previewCount").textContent = lines.length - 1;
+      document.getElementById("previewThead").innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join("")}</tr>`;
+      document.getElementById("previewTbody").innerHTML = rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("");
+
+      document.getElementById("previewCard").style.display = "block";
+      document.getElementById("errorReport").style.display = "none";
+    }
+
+    async function submitCSVUpload() {
+      if (!selectedCSVFile) return;
+
+      const uploadBtn = document.getElementById("uploadBtn");
+      uploadBtn.disabled = true;
+      uploadBtn.textContent = "Verifying & Ingesting...";
+
+      const formData = new FormData();
+      formData.append("file", selectedCSVFile);
+
+      try {
+        const res = await fetch("/api/vendor/inventory/bulk", {
+          method: "POST",
+          credentials: "include",
+          body: formData
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          VendorApp.showToast(`Batch completed: ${data.created_count} devices successfully imported!`);
+
+          if (data.errors && data.errors.length > 0) {
+            const errBox = document.getElementById("errorReport");
+            const errBody = document.getElementById("errorTableBody");
+            errBody.innerHTML = data.errors.map(err => `
+              <tr>
+                <td>Row ${err.row}</td>
+                <td><code>${err.imei || '-'}</code></td>
+                <td>${err.error}</td>
+              </tr>
+            `).join("");
+            errBox.style.display = "block";
+          } else {
+            setTimeout(() => {
+              window.location.href = "inventory.html";
+            }, 1500);
+          }
+        } else {
+          alert(data.error || "Bulk upload failed.");
+        }
+      } catch (err) {
+        alert("Network error during bulk upload.");
+      } finally {
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = "🚀 Upload & Verify All Rows";
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      await VendorApp.init("bulk-upload", "Bulk CSV Upload", "Batch import inventory units using standard CSV format");
+    });
+  </script>
+</body>
+</html>

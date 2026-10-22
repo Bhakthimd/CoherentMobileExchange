@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Partner Registration | CoherentMobiles</title>
+  <link rel="stylesheet" href="vendor.css">
+  <style>
+    .auth-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 20px;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    }
+    .auth-card {
+      width: 100%;
+      max-width: 620px;
+      background: #fff;
+      border-radius: var(--radius-lg);
+      padding: 40px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    }
+  </style>
+</head>
+<body class="auth-page">
+
+  <div class="auth-card">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+      <span style="font-size:32px;">🏪</span>
+      <div>
+        <h2 style="font-size:22px; font-weight:800; color:var(--text-main);">Partner Registration</h2>
+        <p style="font-size:13px; color:var(--text-muted);">Join India's certified refurbished mobile marketplace</p>
+      </div>
+    </div>
+
+    <div id="registerAlert" style="display:none;" class="alert-banner alert-danger"></div>
+
+    <form id="vendorRegisterForm" onsubmit="handleRegister(event)">
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label" for="vendorName">Business / Store Name *</label>
+          <input type="text" id="vendorName" class="form-control" placeholder="e.g. Metro Mobile Hub" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="vendorCode">Preferred Store Code *</label>
+          <input type="text" id="vendorCode" class="form-control" placeholder="e.g. MM-HUB" style="text-transform:uppercase;" required>
+        </div>
+      </div>
+
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label" for="contactName">Authorized Contact Person *</label>
+          <input type="text" id="contactName" class="form-control" placeholder="Your Full Name" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="category">Business Category</label>
+          <select id="category" class="form-control">
+            <option value="Multi-Brand Refurbished Wholesaler">Multi-Brand Refurbished Wholesaler</option>
+            <option value="Flagship Specialist">Flagship Specialist</option>
+            <option value="Authorized Regional Distributor">Authorized Regional Distributor</option>
+            <option value="Direct Certified Retailer">Direct Certified Retailer</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label" for="contactEmail">Business Email *</label>
+          <input type="email" id="contactEmail" class="form-control" placeholder="partner@yourstore.com" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="contactPhone">Contact Phone *</label>
+          <input type="tel" id="contactPhone" class="form-control" placeholder="+91 98765 43210" required>
+        </div>
+      </div>
+
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label" for="location">City & State *</label>
+          <input type="text" id="location" class="form-control" placeholder="e.g. Bengaluru, Karnataka" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="gstNumber">GST Number (Optional)</label>
+          <input type="text" id="gstNumber" class="form-control" placeholder="e.g. 29ABCDE1234F1Z5">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="password">Create Login Password (min 8 characters) *</label>
+        <input type="password" id="password" class="form-control" placeholder="Enter secure password" minlength="8" required>
+      </div>
+
+      <button type="submit" id="submitBtn" class="btn btn-primary" style="width:100%; justify-content:center; padding:12px; margin-top:10px;">
+        Submit Partner Application
+      </button>
+    </form>
+
+    <div style="text-align:center; margin-top:24px; font-size:13.5px; color:var(--text-muted);">
+      Already a registered partner?
+      <a href="login.html" style="color:var(--primary); font-weight:700; text-decoration:none;">Sign In</a>
+    </div>
+  </div>
+
+  <script src="vendor.js"></script>
+  <script>
+    async function handleRegister(e) {
+      e.preventDefault();
+      const payload = {
+        name: document.getElementById("contactName").value.trim(),
+        vendor_name: document.getElementById("vendorName").value.trim(),
+        vendor_code: document.getElementById("vendorCode").value.trim().toUpperCase(),
+        email: document.getElementById("contactEmail").value.trim().lowerCase ? document.getElementById("contactEmail").value.trim().toLowerCase() : document.getElementById("contactEmail").value.trim(),
+        phone: document.getElementById("contactPhone").value.trim(),
+        category: document.getElementById("category").value,
+        location: document.getElementById("location").value.trim(),
+        gst_number: document.getElementById("gstNumber").value.trim(),
+        password: document.getElementById("password").value
+      };
+
+      const alertEl = document.getElementById("registerAlert");
+      const submitBtn = document.getElementById("submitBtn");
+
+      alertEl.style.display = "none";
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Submitting application...";
+
+      try {
+        const res = await fetch("/api/auth/vendor/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          if (data.token) {
+            localStorage.setItem("cm_vendor_token", data.token);
+          }
+          window.location.href = "/vendor/dashboard.html";
+        } else {
+          alertEl.textContent = data.error || "Registration failed. Please check form details.";
+          alertEl.style.display = "flex";
+        }
+      } catch (err) {
+        alertEl.textContent = "Network error. Please try again.";
+        alertEl.style.display = "flex";
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Submit Partner Application";
+      }
+    }
+
+    VendorApp.init("register");
+  </script>
+</body>
+</html>

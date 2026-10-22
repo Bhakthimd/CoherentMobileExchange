@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Partner Dashboard | CoherentMobiles</title>
+  <link rel="stylesheet" href="vendor.css">
+</head>
+<body>
+
+  <div class="vendor-layout">
+    <aside id="vendorSidebar" class="vendor-sidebar"></aside>
+
+    <main class="vendor-main">
+      <header id="vendorHeader" class="vendor-header"></header>
+
+      <div class="vendor-content">
+        <!-- Stat Grid -->
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div>
+              <div class="stat-label">Units In Stock</div>
+              <div class="stat-value" id="statInStock">--</div>
+            </div>
+            <div class="stat-icon green">📱</div>
+          </div>
+
+          <div class="stat-card">
+            <div>
+              <div class="stat-label">Units Reserved</div>
+              <div class="stat-value" id="statReserved">--</div>
+            </div>
+            <div class="stat-icon amber">⏳</div>
+          </div>
+
+          <div class="stat-card">
+            <div>
+              <div class="stat-label">Sold This Month</div>
+              <div class="stat-value" id="statSoldMonth">--</div>
+            </div>
+            <div class="stat-icon blue">📦</div>
+          </div>
+
+          <div class="stat-card">
+            <div>
+              <div class="stat-label">Revenue This Month</div>
+              <div class="stat-value" id="statRevenue">--</div>
+            </div>
+            <div class="stat-icon">💰</div>
+          </div>
+        </div>
+
+        <!-- Low Stock Alerts -->
+        <div id="lowStockCard" class="card" style="display:none; border-left: 4px solid var(--warning);">
+          <div class="card-header" style="background:#fffbeb;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:20px;">⚠️</span>
+              <strong style="color:#92400e;">Low Inventory Warning</strong>
+            </div>
+          </div>
+          <div style="padding: 16px 24px; font-size:13.5px; color:#92400e;" id="lowStockDetails"></div>
+        </div>
+
+        <!-- Quick Actions & Recent Orders -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Recent Customer Orders For Your Units</h2>
+            <div style="display:flex; gap:10px;">
+              <a href="device-form.html" class="btn btn-primary btn-sm">➕ Add Single Unit</a>
+              <a href="bulk-upload.html" class="btn btn-secondary btn-sm">📁 Bulk Upload CSV</a>
+              <a href="orders.html" class="btn btn-secondary btn-sm">View All Orders</a>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="cm-table">
+              <thead>
+                <tr>
+                  <th>Order Ref</th>
+                  <th>Device & Grade</th>
+                  <th>IMEI</th>
+                  <th>Price</th>
+                  <th>Status</th>
+                  <th>Delivery City</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody id="recentOrdersBody">
+                <tr>
+                  <td colspan="7" style="text-align:center; padding:32px; color:var(--text-muted);">
+                    Loading recent orders...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="vendor.js"></script>
+  <script>
+    async function loadDashboardData() {
+      try {
+        // 1. Fetch Stats
+        const statsRes = await fetch("/api/vendor/stats", { credentials: "include" });
+        if (statsRes.ok) {
+          const statsData = await statsRes.json();
+          if (statsData.success && statsData.stats) {
+            const s = statsData.stats;
+            document.getElementById("statInStock").textContent = s.in_stock;
+            document.getElementById("statReserved").textContent = s.reserved;
+            document.getElementById("statSoldMonth").textContent = s.sold_this_month;
+            document.getElementById("statRevenue").textContent = VendorApp.formatINR(s.revenue_this_month);
+
+            if (s.low_stock_brands && s.low_stock_brands.length > 0) {
+              const card = document.getElementById("lowStockCard");
+              const details = document.getElementById("lowStockDetails");
+              card.style.display = "block";
+              details.textContent = `The following brands currently have fewer than 3 refurbished units in your store: ${s.low_stock_brands.join(", ")}. Restock to avoid missing customer purchases.`;
+            }
+          }
+        }
+
+        // 2. Fetch Recent Orders
+        const ordersRes = await fetch("/api/vendor/orders", { credentials: "include" });
+        const ordersBody = document.getElementById("recentOrdersBody");
+        if (ordersRes.ok) {
+          const ordersData = await ordersRes.json();
+          const items = ordersData.orders || [];
+          if (items.length === 0) {
+            ordersBody.innerHTML = `
+              <tr>
+                <td colspan="7" style="text-align:center; padding:40px; color:var(--text-muted);">
+                  No orders received yet. Active in-stock units are displayed on the public storefront.
+                </td>
+              </tr>
+            `;
+          } else {
+            ordersBody.innerHTML = items.slice(0, 5).map(item => `
+              <tr>
+                <td><strong>${item.order_reference || 'CM-ORD'}</strong></td>
+                <td>
+                  <div style="font-weight:700;">${item.device_name || 'Device'}</div>
+                  <span class="badge badge-grade-${(item.condition_grade || 'good').replace('_', '-')}">${(item.condition_grade || 'good').replace('_', ' ')}</span>
+                </td>
+                <td><code>${item.imei || '-'}</code></td>
+                <td><strong>${VendorApp.formatINR(item.price)}</strong></td>
+                <td><span class="badge badge-${item.item_status}">${item.item_status}</span></td>
+                <td>${item.delivery_address ? item.delivery_address.split(',').slice(-2).join(', ') : '-'}</td>
+                <td>${VendorApp.formatDate(item.created_at)}</td>
+              </tr>
+            `).join("");
+          }
+        }
+      } catch (err) {
+        console.error("Dashboard data load error:", err);
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      await VendorApp.init("dashboard", "Vendor Dashboard", "Overview of your refurbished inventory & sales");
+      loadDashboardData();
+    });
+  </script>
+</body>
+</html>
