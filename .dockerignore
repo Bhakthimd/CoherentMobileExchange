@@ -1,0 +1,12 @@
+.git
+.gitignore
+.dockerignore
+node_modules
+npm-debug.log
+database/
+coherent_mobiles_schema.sql
+database-schema.png
+docs/
+*.md
+test_runner.js
+.gemini

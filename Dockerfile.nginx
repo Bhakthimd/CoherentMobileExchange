@@ -1,0 +1,32 @@
+# Production-ready static web server using lightweight Nginx Alpine
+FROM nginx:alpine
+
+# Metadata
+LABEL maintainer="CoherentMobiles Team"
+LABEL description="CoherentMobiles - AI Phone Valuation, Buy, Sell & Exchange Web Application"
+
+# Set working directory to Nginx web root
+WORKDIR /usr/share/nginx/html
+
+# Clean up default Nginx static files
+RUN rm -rf ./*
+
+# Copy custom Nginx configuration
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Copy application files and assets
+COPY index.html ./
+COPY crud-dashboard.html ./
+COPY crud-dashboard.css ./
+COPY crud-dashboard.js ./
+COPY images/ ./images/
+
+# Expose HTTP port 80
+EXPOSE 80
+
+# Container health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD wget --quiet --tries=1 --spider http://127.0.0.1/ || exit 1
+
+# Start Nginx in foreground
+CMD ["nginx", "-g", "daemon off;"]
