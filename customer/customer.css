@@ -1,0 +1,69 @@
+/* CoherentMobiles Customer Enhancements */
+
+.catalog-unit-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 6px;
+  margin-top: 4px;
+}
+
+.badge-vendor {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.badge-unit-left {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  animation: pulseBadge 2s infinite;
+}
+
+.badge-grade-like-new { background: #e0e7ff; color: #3730a3; }
+.badge-grade-good { background: #dcfce7; color: #166534; }
+.badge-grade-fair { background: #fef3c7; color: #854d0e; }
+
+.customer-orders-modal {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(15, 23, 42, 0.7);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.customer-orders-card {
+  background: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 720px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  padding: 28px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+}
+
+.customer-order-item {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+@keyframes pulseBadge {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.75; }
+}
