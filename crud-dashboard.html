@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CoherentMobiles Admin | Vendor Dashboard & Products List</title>
+  
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  
+  <!-- Admin Dashboard Stylesheet -->
+  <link rel="stylesheet" href="crud-dashboard.css">
+</head>
+<body>
+
+  <!-- ================= APP LAYOUT ================= -->
+  <div class="dash-layout">
+    
+    <!-- FIXED LEFT SIDEBAR -->
+    <aside class="dash-sidebar" id="dashSidebar">
+      <div class="sidebar-header">
+        <a href="index.html" class="brand-link" title="Return to Main CoherentMobiles Storefront">
+          <div class="brand-icon">
+            <i class="bi bi-phone"></i>
+          </div>
+          <div class="brand-text">Coherent<span>Mobiles</span></div>
+          <span class="brand-badge">Admin</span>
+        </a>
+      </div>
+
+      <!-- Navigation Menu -->
+      <nav class="sidebar-nav">
+        <div class="nav-section-title">MANAGEMENT</div>
+        <ul class="nav-menu">
+          <li class="nav-item">
+            <a href="javascript:void(0)" class="nav-link" data-view="overview" id="navOverview">
+              <i class="bi bi-speedometer2"></i>
+              <span>Overview</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="javascript:void(0)" class="nav-link active" data-view="vendors" id="navVendors">
+              <i class="bi bi-shop"></i>
+              <span>Vendors</span>
+              <span class="nav-pill-badge" id="navVendorCount">4</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="javascript:void(0)" class="nav-link" data-view="products" id="navProducts">
+              <i class="bi bi-box-seam"></i>
+              <span>Products</span>
+              <span class="nav-count-badge" id="navProductCount">0</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="javascript:void(0)" class="nav-link" data-view="categories" id="navCategories">
+              <i class="bi bi-grid-3x3-gap"></i>
+              <span>Categories</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="javascript:void(0)" class="nav-link" data-view="inventory" id="navInventory">
+              <i class="bi bi-boxes"></i>
+              <span>Inventory</span>
+              <span class="nav-status-dot dot-green" title="Stock Healthy"></span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="javascript:void(0)" class="nav-link" data-view="orders" id="navOrders">
+              <i class="bi bi-receipt"></i>
+              <span>Orders</span>
+              <span class="nav-count-badge">5</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="javascript:void(0)" class="nav-link" data-view="analytics" id="navAnalytics">
+              <i class="bi bi-graph-up"></i>
+              <span>Analytics</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="javascript:void(0)" class="nav-link" data-view="settings" id="navSettings">
+              <i class="bi bi-gear"></i>
+              <span>Settings</span>
+            </a>
+          </li>
+        </ul>
+
+        <div class="nav-section-title">STOREFRONT & VENDORS</div>
+        <ul class="nav-menu">
+          <li class="nav-item">
+            <a href="index.html#vendorPage" class="nav-link external-store-link" target="_self" style="color: #2563eb; font-weight: 700;">
+              <i class="bi bi-box-arrow-in-right"></i>
+              <span>Vendor Portal Login</span>
+              <span class="badge-store" style="background: #2563eb; color: #fff;">Vendor</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="index.html" class="nav-link external-store-link" target="_self">
+              <i class="bi bi-arrow-left-circle"></i>
+              <span>Live Storefront</span>
+              <span class="badge-store">Store</span>
+            </a>
+          </li>
+        </ul>
+      </nav>
+
+      <!-- Sidebar Footer: Status & Profile -->
+      <div class="sidebar-footer">
+        <div class="data-mode-badge" id="dataModeBadge" title="Backend connection status">
+          <span class="mode-dot"></span>
+          <span id="dataModeLabel">Connecting to Redis...</span>
+        </div>
+        <div class="user-profile-widget">
+          <div class="user-avatar">AM</div>
+          <div class="user-details">
+            <div class="user-name">Admin Manager</div>
+            <div class="user-role">Inventory Lead</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Mobile Sidebar Backdrop -->
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+    <!-- MAIN DASHBOARD CONTENT -->
+    <main class="dash-main">
+      
+      <!-- TOP NAVIGATION BAR -->
+      <header class="dash-topbar">
+        <div class="topbar-left">
+          <button class="btn-toggle-sidebar" id="btnToggleSidebar" aria-label="Toggle navigation">
+            <i class="bi bi-list"></i>
+          </button>
+          <div class="page-title-wrap">
+            <div class="breadcrumb" id="topbarBreadcrumb">Dashboard / Vendors</div>
+            <h1 id="topbarTitle">Vendor Management & Products List</h1>
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <!-- Global Search Box -->
+          <div class="topbar-search">
+            <i class="bi bi-search"></i>
+            <input type="text" id="topbarSearchInput" placeholder="Quick search brand, model, ID... (Ctrl+K)">
+            <kbd class="search-kbd">⌘K</kbd>
+          </div>
+
+          <!-- Notification Bell -->
+          <div class="notif-bell-wrap">
+            <button class="btn-icon" id="notifBellBtn" title="View notifications" aria-label="Notifications">
+              <i class="bi bi-bell"></i>
+              <span class="notif-dot" id="notifBadge"></span>
+            </button>
+            <div class="notif-dropdown d-none" id="notifDropdown">
+              <div class="notif-header">
+                <h4>Notifications</h4>
+                <span class="notif-count" id="notifCountText">2 New</span>
+              </div>
+              <ul class="notif-list" id="notifList">
+                <li class="notif-item unread">
+                  <i class="bi bi-check-circle-fill text-success"></i>
+                  <div class="notif-content">
+                    <p>Redis backend connected successfully</p>
+                    <small>Real-time inventory synchronization active</small>
+                  </div>
+                </li>
+                <li class="notif-item">
+                  <i class="bi bi-shop text-primary"></i>
+                  <div class="notif-content">
+                    <p>4 Verified vendors loaded</p>
+                    <small>Official CoherentMobiles distribution network</small>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Vendor Portal Button -->
+          <a href="index.html#vendorPage" class="btn btn-outline-primary d-none d-md-inline-flex" style="text-decoration: none; padding: 7px 14px; border-radius: 8px; font-weight: 700; font-size: 13px; align-items: center; gap: 6px; border: 1.5px solid #2563eb; color: #2563eb;" title="Go to Storefront Vendor Portal">
+            <i class="bi bi-shop"></i>
+            <span>Vendor Login</span>
+          </a>
+
+          <!-- Add Product Button (Header) -->
+          <button class="primary-btn btn-add-header" id="btnOpenAddModal">
+            <i class="bi bi-plus-lg"></i>
+            <span>Add Product</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- OFFLINE / ERROR BANNER (Shown if backend is unreachable) -->
+      <div class="backend-alert-banner d-none" id="backendAlertBanner">
+        <div class="banner-inner">
+          <i class="bi bi-exclamation-triangle-fill banner-icon"></i>
+          <div class="banner-text">
+            <strong>Backend Connection Offline:</strong> Unable to connect to Flask API &amp; Redis on <code>http://localhost:5000</code>. Inventory updates are paused.
+          </div>
+          <button class="btn-banner-retry" id="btnBannerRetry">
+            <i class="bi bi-arrow-clockwise"></i> Retry Connection
+          </button>
+        </div>
+      </div>
+
+      <!-- DASHBOARD BODY CONTAINER -->
+      <div class="dash-body">
+        
+        <!-- ================================================================= -->
+        <!-- VIEW 1: VENDORS SECTION (PRIMARY FOCUS)                           -->
+        <!-- ================================================================= -->
+        <div class="dashboard-view" id="viewVendors">
+          
+          <!-- Vendor Summary Cards (Requirement 3) -->
+          <section class="stats-grid">
+            
+            <!-- Card 1: Total Vendors -->
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span class="stat-title">Total Vendors</span>
+                <div class="stat-icon icon-purple">
+                  <i class="bi bi-shop-window"></i>
+                </div>
+              </div>
+              <div class="stat-card-body">
+                <h3 class="stat-num" id="statVendorTotal">0</h3>
+                <div class="stat-footer positive">
+                  <i class="bi bi-patch-check-fill"></i>
+                  <span id="statVendorSubtitle">Verified partners</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 2: Total Products -->
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span class="stat-title">Total Products</span>
+                <div class="stat-icon icon-indigo">
+                  <i class="bi bi-phone"></i>
+                </div>
+              </div>
+              <div class="stat-card-body">
+                <h3 class="stat-num" id="statTotalProducts">0</h3>
+                <div class="stat-footer positive">
+                  <i class="bi bi-boxes"></i>
+                  <span>Active in catalogue</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 3: Products in Stock -->
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span class="stat-title">Products In Stock</span>
+                <div class="stat-icon icon-emerald">
+                  <i class="bi bi-check2-circle"></i>
+                </div>
+              </div>
+              <div class="stat-card-body">
+                <h3 class="stat-num" id="statInStockCount">0</h3>
+                <div class="stat-footer positive">
+                  <i class="bi bi-arrow-up-right"></i>
+                  <span id="statInStockPct">Available for delivery</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 4: Out of Stock -->
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span class="stat-title">Out of Stock</span>
+                <div class="stat-icon icon-rose">
+                  <i class="bi bi-slash-circle"></i>
+                </div>
+              </div>
+              <div class="stat-card-body">
+                <h3 class="stat-num" id="statOutOfStockCount">0</h3>
+                <div class="stat-footer neutral">
+                  <i class="bi bi-exclamation-circle"></i>
+                  <span>Requires reorder</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 5: Total Inventory Value -->
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span class="stat-title">Total Inventory Value</span>
+                <div class="stat-icon icon-teal">
+                  <i class="bi bi-currency-rupee"></i>
+                </div>
+              </div>
+              <div class="stat-card-body">
+                <h3 class="stat-num" id="statTotalValue">₹0</h3>
+                <div class="stat-footer positive">
+                  <i class="bi bi-wallet2"></i>
+                  <span>Cumulative asset value</span>
+                </div>
+              </div>
+            </div>
+
+          </section>
+
+          <!-- Vendor Partner Tabs / Filter Bar -->
+          <section class="vendor-selector-section">
+            <div class="vendor-tabs-card">
+              <div class="vendor-tabs-header">
+                <div class="vendor-tabs-title">
+                  <i class="bi bi-building"></i>
+                  <span>Vendor Partner Filter</span>
+                </div>
+                <button class="btn-sm-text" id="btnOpenAddVendorModal">
+                  <i class="bi bi-plus-circle"></i> Add Vendor
+                </button>
+              </div>
+              <div class="vendor-pills-bar" id="vendorPillsBar">
+                <!-- Dynamically populated vendor chips -->
+              </div>
+              
+              <!-- Selected Vendor Details Strip -->
+              <div class="selected-vendor-strip d-none" id="selectedVendorStrip">
+                <div class="vendor-info-badge">
+                  <i class="bi bi-shield-check"></i>
+                  <span id="stripVendorName">Coherent Retail Direct</span>
+                  <span class="vendor-code-tag" id="stripVendorCode">CR-DIR</span>
+                </div>
+                <div class="vendor-meta-list">
+                  <span class="meta-item"><i class="bi bi-envelope"></i> <span id="stripVendorEmail">retail@coherentmobiles.com</span></span>
+                  <span class="meta-item"><i class="bi bi-telephone"></i> <span id="stripVendorPhone">+91 98765 43210</span></span>
+                  <span class="meta-item"><i class="bi bi-geo-alt"></i> <span id="stripVendorLocation">Mumbai</span></span>
+                  <span class="meta-item"><i class="bi bi-star-fill text-warning"></i> <span id="stripVendorRating">4.9 / 5.0</span></span>
+                  <span class="meta-item"><i class="bi bi-box"></i> <strong id="stripVendorProductCount">0</strong> Products</span>
+                </div>
+                <button class="btn-clear-vendor" id="btnClearVendorFilter" title="Show all vendors">
+                  <i class="bi bi-x-lg"></i> Clear Filter
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- PRODUCTS LIST TABLE & TOOLBAR -->
+          <section class="crud-section" id="productsTableSection">
+            <div class="crud-card">
+              
+              <!-- Toolbar -->
+              <div class="crud-toolbar">
+                <div class="toolbar-heading">
+                  <div class="title-with-badge">
+                    <h2>Products List</h2>
+                    <span class="items-badge" id="recordsBadge">0 products</span>
+                  </div>
+                  <p>Browse, filter, edit and maintain certified smartphone inventory in Redis.</p>
+                </div>
+
+                <!-- Controls -->
+                <div class="toolbar-controls">
+                  
+                  <!-- Live Search Input -->
+                  <div class="search-input-wrap">
+                    <i class="bi bi-search"></i>
+                    <input type="text" id="tableSearchInput" placeholder="Search brand, model, ID...">
+                    <button type="button" class="btn-clear-search d-none" id="btnClearSearch" aria-label="Clear search">
+                      <i class="bi bi-x-circle-fill"></i>
+                    </button>
+                  </div>
+
+                  <!-- Brand Filter -->
+                  <div class="select-wrap">
+                    <select id="brandSelectFilter">
+                      <option value="">All Brands</option>
+                    </select>
+                  </div>
+
+                  <!-- Stock Status Filter -->
+                  <div class="select-wrap">
+                    <select id="statusSelectFilter">
+                      <option value="">All Stock Status</option>
+                      <option value="In Stock">In Stock</option>
+                      <option value="Flagship">Flagship</option>
+                      <option value="Low Stock">Low Stock</option>
+                      <option value="Out of Stock">Out of Stock</option>
+                    </select>
+                  </div>
+
+                  <!-- Sort Selector -->
+                  <div class="select-wrap">
+                    <select id="sortSelectFilter">
+                      <option value="id-asc">Sort: ID (Ascending)</option>
+                      <option value="id-desc">Sort: ID (Descending)</option>
+                      <option value="price-asc">Price: Low to High</option>
+                      <option value="price-desc">Price: High to Low</option>
+                      <option value="name-asc">Model: A to Z</option>
+                      <option value="name-desc">Model: Z to A</option>
+                    </select>
+                  </div>
+
+                  <!-- View Switcher -->
+                  <div class="view-switcher">
+                    <button class="btn-view active" id="btnViewTable" title="Table View">
+                      <i class="bi bi-table"></i>
+                    </button>
+                    <button class="btn-view" id="btnViewCards" title="Grid View">
+                      <i class="bi bi-grid-fill"></i>
+                    </button>
+                  </div>
+
+                  <!-- Export CSV Button -->
+                  <button class="outline-btn btn-export-csv" id="btnExportCSV" title="Export products list as CSV">
+                    <i class="bi bi-file-earmark-spreadsheet"></i>
+                    <span>Export CSV</span>
+                  </button>
+
+                  <!-- Refresh Button -->
+                  <button class="secondary-btn btn-refresh" id="btnRefresh" title="Refresh records from backend">
+                    <i class="bi bi-arrow-clockwise" id="refreshIcon"></i>
+                    <span>Refresh</span>
+                  </button>
+
+                  <!-- Add Product Button -->
+                  <button class="primary-btn" id="btnOpenAddModalToolbar">
+                    <i class="bi bi-plus-lg"></i>
+                    <span>Add Product</span>
+                  </button>
+
+                </div>
+              </div>
+
+              <!-- Brand Quick Filter Chips Bar -->
+              <div class="brand-pills-bar" id="brandPillsBar">
+                <!-- Dynamically populated brand chips -->
+              </div>
+
+              <!-- VIEW 1: PRODUCTS TABLE -->
+              <div class="table-container" id="tableContainer">
+                <table class="crud-table" id="inventoryTable">
+                  <thead>
+                    <tr>
+                      <th style="width: 70px;">Image</th>
+                      <th style="width: 70px;">ID</th>
+                      <th style="width: 120px;">Brand</th>
+                      <th style="width: 220px;">Product Name / Model</th>
+                      <th style="width: 110px;">Storage</th>
+                      <th style="width: 150px;">Selling Price (₹)</th>
+                      <th style="width: 130px;">Stock Status</th>
+                      <th style="width: 160px;">Vendor Partner</th>
+                      <th style="width: 130px;">Last Updated</th>
+                      <th style="width: 150px;" class="text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="inventoryTableBody">
+                    <!-- Populated via JavaScript -->
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- VIEW 2: SHOWCASE CARDS GRID -->
+              <div class="cards-grid-view d-none" id="cardsGridView">
+                <!-- Populated via JavaScript -->
+              </div>
+
+              <!-- Empty State -->
+              <div class="empty-state d-none" id="emptyState">
+                <div class="empty-icon"><i class="bi bi-phone-vibrate"></i></div>
+                <h4 id="emptyTitle">No Products Found</h4>
+                <p id="emptyMsg">No smartphone products matched your current filter criteria.</p>
+                <div class="empty-actions">
+                  <button class="outline-btn" id="btnEmptyResetFilters">Clear Filters</button>
+                  <button class="primary-btn" id="btnEmptyAdd">
+                    <i class="bi bi-plus-lg"></i> Add New Product
+                  </button>
+                </div>
+              </div>
+
+              <!-- Table Card Footer: Pagination & Counter -->
+              <div class="crud-card-footer">
+                <div class="footer-info">
+                  Showing <strong id="showingCountText">0</strong> of <strong id="totalCountText">0</strong> products
+                </div>
+
+                <div class="pagination-controls" id="paginationControls">
+                  <div class="page-size-wrap">
+                    <label for="pageSizeSelect">Per page:</label>
+                    <select id="pageSizeSelect">
+                      <option value="10">10</option>
+                      <option value="25">25</option>
+                      <option value="50">50</option>
+                    </select>
+                  </div>
+                  <button class="btn-page" id="btnPrevPage" disabled title="Previous page">
+                    <i class="bi bi-chevron-left"></i>
+                  </button>
+                  <span class="page-indicator" id="pageIndicator">Page 1 of 1</span>
+                  <button class="btn-page" id="btnNextPage" disabled title="Next page">
+                    <i class="bi bi-chevron-right"></i>
+                  </button>
+                </div>
+
+                <div class="footer-actions">
+                  <button class="outline-btn btn-sm" id="btnResetData" title="Reset Redis back to default sample dataset">
+                    <i class="bi bi-arrow-counterclockwise"></i> Reset Defaults
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+        </div>
+
+        <!-- ================================================================= -->
+        <!-- VIEW 2: OVERVIEW SECTION                                          -->
+        <!-- ================================================================= -->
+        <div class="dashboard-view d-none" id="viewOverview">
+          <div class="overview-grid">
+            
+            <!-- Quick Summary Widget -->
+            <div class="section-card">
+              <div class="card-header-simple">
+                <div>
+                  <span class="eyebrow">PORTFOLIO OVERVIEW</span>
+                  <h3>Inventory & Vendor Performance</h3>
+                </div>
+                <span class="badge-tag">Live Redis Telemetry</span>
+              </div>
+              <div class="overview-stats-grid">
+                <div class="overview-stat-tile">
+                  <span class="tile-label">Average Selling Price</span>
+                  <h4 class="tile-val" id="ovAvgPrice">₹0</h4>
+                  <small class="tile-hint">Mean per device</small>
+                </div>
+                <div class="overview-stat-tile">
+                  <span class="tile-label">Flagship Devices</span>
+                  <h4 class="tile-val" id="ovFlagshipCount">0</h4>
+                  <small class="tile-hint">Priced &gt; ₹80,000</small>
+                </div>
+                <div class="overview-stat-tile">
+                  <span class="tile-label">Stock Health Ratio</span>
+                  <h4 class="tile-val text-success" id="ovStockHealth">100%</h4>
+                  <small class="tile-hint">In stock vs total</small>
+                </div>
+                <div class="overview-stat-tile">
+                  <span class="tile-label">Registered Vendors</span>
+                  <h4 class="tile-val text-primary" id="ovVendorCount">4</h4>
+                  <small class="tile-hint">Active channels</small>
+                </div>
+              </div>
+            </div>
+
+            <!-- Brand Distribution Breakdown -->
+            <div class="section-card">
+              <div class="card-header-simple">
+                <div>
+                  <span class="eyebrow">DISTRIBUTION &amp; ANALYTICS</span>
+                  <h3>Brand Market Share &amp; Valuation</h3>
+                </div>
+                <button class="btn-sm-text" id="btnGoToAnalytics">Full Analytics &rarr;</button>
+              </div>
+              <div class="brand-stats-grid" id="brandStatsGrid">
+                <!-- Dynamically populated distribution metrics -->
+              </div>
+            </div>
+
+            <!-- Top Expensive Flagships -->
+            <div class="section-card">
+              <div class="card-header-simple">
+                <div>
+                  <span class="eyebrow">PREMIUM TIER</span>
+                  <h3>Top 5 Highest Valued Smartphones</h3>
+                </div>
+              </div>
+              <div class="top-expensive-list" id="topExpensiveList">
+                <!-- Populated via JS -->
+              </div>
+            </div>
+
+            <!-- Recent Activity Audit Log -->
+            <div class="section-card">
+              <div class="card-header-simple">
+                <div>
+                  <span class="eyebrow">AUDIT TRAIL</span>
+                  <h3>Recent Inventory Activity</h3>
+                </div>
+                <span class="badge-tag">Redis Log</span>
+              </div>
+              <div class="activity-feed" id="activityFeed">
+                <!-- Populated via JS -->
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ================================================================= -->
+        <!-- VIEW 3: CATEGORIES VIEW                                           -->
+        <!-- ================================================================= -->
+        <div class="dashboard-view d-none" id="viewCategories">
+          <div class="section-card">
+            <div class="card-header-simple">
+              <div>
+                <span class="eyebrow">DEVICE CATEGORIES</span>
+                <h3>Smartphone Brands &amp; Series Breakdown</h3>
+              </div>
+            </div>
+            <div class="categories-grid" id="categoriesGrid">
+              <!-- Populated via JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- ================================================================= -->
+        <!-- VIEW 4: INVENTORY VIEW                                            -->
+        <!-- ================================================================= -->
+        <div class="dashboard-view d-none" id="viewInventory">
+          <div class="section-card">
+            <div class="card-header-simple">
+              <div>
+                <span class="eyebrow">STOCK MONITORING</span>
+                <h3>Warehouse &amp; Vendor Stock Allocations</h3>
+              </div>
+            </div>
+            <div class="inventory-status-summary" id="inventoryStatusSummary">
+              <!-- Populated via JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- ================================================================= -->
+        <!-- VIEW 5: ORDERS VIEW                                               -->
+        <!-- ================================================================= -->
+        <div class="dashboard-view d-none" id="viewOrders">
+          <div class="section-card">
+            <div class="card-header-simple">
+              <div>
+                <span class="eyebrow">STOREFRONT ORDERS</span>
+                <h3>Customer Purchases &amp; Trade-In Exchanges</h3>
+              </div>
+            </div>
+            <div class="orders-table-container">
+              <table class="crud-table">
+                <thead>
+                  <tr>
+                    <th>Order #</th>
+                    <th>Customer</th>
+                    <th>Device</th>
+                    <th>Fulfillment</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th style="text-align:right">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="ordersTableBody">
+                  <tr>
+                    <td><code>#CM-8492</code></td>
+                    <td>Rahul Sharma</td>
+                    <td>Apple iPhone 15 Pro (256 GB)</td>
+                    <td><span class="badge-tag">Doorstep Delivery</span></td>
+                    <td>₹1,29,999</td>
+                    <td><span class="status-badge in-stock">Confirmed</span></td>
+                    <td style="text-align:right"><span class="badge-tag">Active</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================================================================= -->
+        <!-- VIEW 6: ANALYTICS VIEW                                            -->
+        <!-- ================================================================= -->
+        <div class="dashboard-view d-none" id="viewAnalytics">
+          <div class="section-card">
+            <div class="card-header-simple">
+              <div>
+                <span class="eyebrow">ENTERPRISE TELEMETRY</span>
+                <h3>Detailed Inventory Valuation &amp; Distribution</h3>
+              </div>
+            </div>
+            <div class="analytics-detail-container" id="analyticsDetailContainer">
+              <!-- Populated via JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- ================================================================= -->
+        <!-- VIEW 7: SETTINGS VIEW                                             -->
+        <!-- ================================================================= -->
+        <div class="dashboard-view d-none" id="viewSettings">
+          <div class="section-card">
+            <div class="card-header-simple">
+              <div>
+                <span class="eyebrow">SYSTEM CONFIGURATION</span>
+                <h3>Backend Infrastructure &amp; Persistence</h3>
+              </div>
+            </div>
+            <div class="settings-grid">
+              <div class="settings-tile">
+                <h4><i class="bi bi-database"></i> Redis Persistence Engine</h4>
+                <p>Status: <strong class="text-success" id="settingsRedisStatus">Connected</strong></p>
+                <p>Host: <code id="settingsRedisHost">localhost:6379</code></p>
+                <p>Protocol: <code>RESP2 (Universal Compatibility)</code></p>
+              </div>
+              <div class="settings-tile">
+                <h4><i class="bi bi-hdd-network"></i> API Endpoints</h4>
+                <ul class="endpoint-list">
+                  <li><code>GET /api/mobiles</code> - Query smartphone catalogue</li>
+                  <li><code>GET /api/vendors</code> - Registered vendor partners</li>
+                  <li><code>GET /api/stats</code> - Dynamic portfolio analytics</li>
+                  <li><code>GET /api/health</code> - Service liveness monitor</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: ADD PRODUCT                                                        -->
+  <!-- ========================================================================= -->
+  <div class="custom-modal-overlay" id="addMobileModalOverlay">
+    <div class="custom-modal modal-lg">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <div class="modal-badge-icon"><i class="bi bi-plus-lg"></i></div>
+          <div>
+            <h3>Add New Mobile Product</h3>
+            <p>Enter smartphone specifications to add to the vendor inventory.</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" id="btnCloseAddModal" aria-label="Close modal">&times;</button>
+      </div>
+
+      <form id="addMobileForm" novalidate>
+        <div class="modal-body modal-split-body">
+          
+          <!-- Left: Form Fields -->
+          <div class="modal-form-col">
+            <div class="modal-alert d-none" id="addModalAlert"></div>
+
+            <!-- Brand Selection -->
+            <div class="form-group">
+              <label for="addBrandInput">Brand Name <span class="req">*</span></label>
+              <input type="text" id="addBrandInput" placeholder="e.g. Apple, Samsung, OnePlus" required>
+              <div class="quick-brand-chips">
+                <span class="chips-label">Popular:</span>
+                <button type="button" class="quick-chip" data-brand="Apple">Apple</button>
+                <button type="button" class="quick-chip" data-brand="Samsung">Samsung</button>
+                <button type="button" class="quick-chip" data-brand="OnePlus">OnePlus</button>
+                <button type="button" class="quick-chip" data-brand="Xiaomi">Xiaomi</button>
+                <button type="button" class="quick-chip" data-brand="Realme">Realme</button>
+                <button type="button" class="quick-chip" data-brand="Vivo">Vivo</button>
+                <button type="button" class="quick-chip" data-brand="OPPO">OPPO</button>
+              </div>
+            </div>
+
+            <!-- Model Name -->
+            <div class="form-group">
+              <label for="addModelInput">Product / Model Name <span class="req">*</span></label>
+              <input type="text" id="addModelInput" placeholder="e.g. iPhone 16 Pro, Galaxy S25" required>
+            </div>
+
+            <!-- Row: Price & Storage -->
+            <div class="form-row">
+              <div class="form-group flex-1">
+                <label for="addPriceInput">Selling Price in INR (₹) <span class="req">*</span></label>
+                <div class="input-with-symbol">
+                  <span class="symbol">₹</span>
+                  <input type="number" id="addPriceInput" min="0" step="any" placeholder="69999" required>
+                </div>
+              </div>
+
+              <div class="form-group" style="width: 140px;">
+                <label for="addStorageInput">Storage</label>
+                <select id="addStorageInput">
+                  <option value="64 GB">64 GB</option>
+                  <option value="128 GB" selected>128 GB</option>
+                  <option value="256 GB">256 GB</option>
+                  <option value="512 GB">512 GB</option>
+                  <option value="1 TB">1 TB</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Row: Vendor & Status -->
+            <div class="form-row">
+              <div class="form-group flex-1">
+                <label for="addVendorSelect">Vendor Partner <span class="req">*</span></label>
+                <select id="addVendorSelect" required>
+                  <!-- Populated via JS with registered vendors -->
+                </select>
+              </div>
+
+              <div class="form-group flex-1">
+                <label for="addStatusSelect">Stock Status</label>
+                <select id="addStatusSelect">
+                  <option value="In Stock" selected>In Stock</option>
+                  <option value="Flagship">Flagship</option>
+                  <option value="Low Stock">Low Stock</option>
+                  <option value="Out of Stock">Out of Stock</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Image URL / Selector -->
+            <div class="form-group">
+              <label for="addImageInput">Product Image URL / Path</label>
+              <input type="text" id="addImageInput" placeholder="images/iphone15.jpg (leave blank for auto-match)">
+            </div>
+          </div>
+
+          <!-- Right: Live Preview Card -->
+          <div class="modal-preview-col">
+            <div class="preview-eyebrow">LIVE PRODUCT PREVIEW</div>
+            <div class="preview-card-wrap">
+              <div class="preview-img-box">
+                <img id="addPreviewImage" src="images/iphone15.jpg" alt="Preview Image" onerror="this.src='images/iphone15.jpg'">
+              </div>
+              <div class="preview-content">
+                <span class="preview-brand-tag" id="previewBrandText">Apple</span>
+                <h4 id="previewModelText">iPhone 16 Pro</h4>
+                <div class="preview-meta">
+                  <span id="previewStorageText">128 GB</span> &bull; 
+                  <span id="previewVendorText">Coherent Retail Direct</span>
+                </div>
+                <div class="preview-price" id="previewPriceText">₹69,999</div>
+                <span class="status-badge in-stock" id="previewStatusBadge">In Stock</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="secondary-btn" id="btnCancelAddModal">Cancel</button>
+          <button type="submit" class="primary-btn" id="btnSubmitAddModal">
+            <span class="btn-text">Add Product to Inventory</span>
+            <span class="btn-spinner d-none"><i class="bi bi-arrow-repeat spin"></i> Adding...</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: EDIT PRODUCT                                                       -->
+  <!-- ========================================================================= -->
+  <div class="custom-modal-overlay" id="editMobileModalOverlay">
+    <div class="custom-modal modal-lg">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <div class="modal-badge-icon edit-icon"><i class="bi bi-pencil-square"></i></div>
+          <div>
+            <h3>Edit Mobile Product</h3>
+            <p>Modify smartphone specifications, vendor assignment, or pricing in Redis.</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" id="btnCloseEditModal" aria-label="Close modal">&times;</button>
+      </div>
+
+      <form id="editMobileForm" novalidate>
+        <input type="hidden" id="editMobileId">
+        
+        <div class="modal-body modal-split-body">
+          <div class="modal-form-col">
+            <div class="modal-alert d-none" id="editModalAlert"></div>
+
+            <div class="device-summary-banner">
+              <div class="device-badge-wrap">
+                <span class="device-id-badge" id="editDisplayId">ID #1</span>
+                <h4 id="editDisplayTitle">Apple iPhone 15</h4>
+              </div>
+              <div class="current-price-badge">
+                <span class="label">Current Price:</span>
+                <strong id="editDisplayCurrentPrice">₹0</strong>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group flex-1">
+                <label for="editBrandInput">Brand Name <span class="req">*</span></label>
+                <input type="text" id="editBrandInput" required>
+              </div>
+
+              <div class="form-group flex-1">
+                <label for="editModelInput">Model Name <span class="req">*</span></label>
+                <input type="text" id="editModelInput" required>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group flex-1">
+                <label for="editPriceInput">Selling Price (₹ INR) <span class="req">*</span></label>
+                <div class="input-with-symbol">
+                  <span class="symbol">₹</span>
+                  <input type="number" id="editPriceInput" min="0" step="any" required>
+                </div>
+                <div class="price-diff-indicator" id="editPriceDiffInfo"></div>
+              </div>
+
+              <div class="form-group" style="width: 140px;">
+                <label for="editStorageInput">Storage</label>
+                <select id="editStorageInput">
+                  <option value="64 GB">64 GB</option>
+                  <option value="128 GB">128 GB</option>
+                  <option value="256 GB">256 GB</option>
+                  <option value="512 GB">512 GB</option>
+                  <option value="1 TB">1 TB</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group flex-1">
+                <label for="editVendorSelect">Vendor Partner</label>
+                <select id="editVendorSelect">
+                  <!-- Populated via JS -->
+                </select>
+              </div>
+
+              <div class="form-group flex-1">
+                <label for="editStatusSelect">Stock Status</label>
+                <select id="editStatusSelect">
+                  <option value="In Stock">In Stock</option>
+                  <option value="Flagship">Flagship</option>
+                  <option value="Low Stock">Low Stock</option>
+                  <option value="Out of Stock">Out of Stock</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="editImageInput">Product Image Path / URL</label>
+              <input type="text" id="editImageInput">
+            </div>
+          </div>
+
+          <div class="modal-preview-col">
+            <div class="preview-eyebrow">UPDATED PREVIEW</div>
+            <div class="preview-card-wrap">
+              <div class="preview-img-box">
+                <img id="editPreviewImage" src="images/iphone15.jpg" alt="Preview Image" onerror="this.src='images/iphone15.jpg'">
+              </div>
+              <div class="preview-content">
+                <span class="preview-brand-tag" id="editPreviewBrand">Apple</span>
+                <h4 id="editPreviewModel">iPhone 15</h4>
+                <div class="preview-meta">
+                  <span id="editPreviewStorage">128 GB</span> &bull; 
+                  <span id="editPreviewVendor">Coherent Retail Direct</span>
+                </div>
+                <div class="preview-price" id="editPreviewPrice">₹69,999</div>
+                <span class="status-badge in-stock" id="editPreviewStatusBadge">In Stock</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="secondary-btn" id="btnCancelEditModal">Cancel</button>
+          <button type="submit" class="primary-btn" id="btnSubmitEditModal">
+            <span class="btn-text">Save Changes</span>
+            <span class="btn-spinner d-none"><i class="bi bi-arrow-repeat spin"></i> Updating...</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: VIEW PRODUCT DETAILS                                               -->
+  <!-- ========================================================================= -->
+  <div class="custom-modal-overlay" id="viewMobileModalOverlay">
+    <div class="custom-modal modal-md">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <div class="modal-badge-icon info-icon"><i class="bi bi-info-circle"></i></div>
+          <div>
+            <h3>Product Details</h3>
+            <p id="viewModalSubtitle">Detailed smartphone specifications &amp; vendor records.</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" id="btnCloseViewModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="view-product-card">
+          <div class="view-product-media">
+            <img id="viewProductImage" src="images/iphone15.jpg" alt="Product" onerror="this.src='images/iphone15.jpg'">
+          </div>
+          <div class="view-product-details">
+            <div class="view-header-row">
+              <span class="device-id-badge" id="viewProductId">#1</span>
+              <span class="status-badge" id="viewProductStatus">In Stock</span>
+            </div>
+            <h3 id="viewProductName">Apple iPhone 15 Pro</h3>
+            <div class="view-price-tag" id="viewProductPrice">₹1,29,999</div>
+            
+            <div class="spec-list">
+              <div class="spec-row">
+                <span class="spec-label"><i class="bi bi-tag"></i> Brand</span>
+                <strong class="spec-val" id="viewProductBrand">Apple</strong>
+              </div>
+              <div class="spec-row">
+                <span class="spec-label"><i class="bi bi-device-hdd"></i> Storage</span>
+                <strong class="spec-val" id="viewProductStorage">256 GB</strong>
+              </div>
+              <div class="spec-row">
+                <span class="spec-label"><i class="bi bi-shop"></i> Vendor Partner</span>
+                <strong class="spec-val" id="viewProductVendor">Coherent Retail Direct</strong>
+              </div>
+              <div class="spec-row">
+                <span class="spec-label"><i class="bi bi-clock-history"></i> Last Updated</span>
+                <strong class="spec-val" id="viewProductUpdated">Just now</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="outline-btn btn-danger-text" id="btnViewDeleteAction">
+          <i class="bi bi-trash"></i> Delete
+        </button>
+        <button type="button" class="primary-btn" id="btnViewEditAction">
+          <i class="bi bi-pencil"></i> Edit Product
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: DELETE CONFIRMATION                                                -->
+  <!-- ========================================================================= -->
+  <div class="custom-modal-overlay" id="deleteModalOverlay">
+    <div class="custom-modal delete-modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <div class="modal-badge-icon delete-icon"><i class="bi bi-trash3-fill"></i></div>
+          <div>
+            <h3>Confirm Product Deletion</h3>
+            <p>Permanent inventory deletion action.</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" id="btnCloseDeleteModal" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="delete-warning-text">Are you sure you want to remove the following smartphone from Redis inventory?</p>
+        
+        <div class="delete-target-preview">
+          <div class="target-img-wrap">
+            <img id="deleteTargetImage" src="images/iphone15.jpg" alt="Target" onerror="this.src='images/iphone15.jpg'">
+          </div>
+          <div class="target-info">
+            <span class="target-id" id="deleteTargetId">#0</span>
+            <h4 id="deleteTargetName">Brand Model</h4>
+            <span class="target-price" id="deleteTargetPrice">₹0</span>
+          </div>
+        </div>
+
+        <p class="delete-note">
+          <i class="bi bi-info-circle"></i> This item will be permanently removed from Redis. All dashboard inventory statistics and vendor counts will recalculate automatically.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="secondary-btn" id="btnCancelDeleteModal">Cancel</button>
+        <button type="button" class="btn-danger-confirm" id="btnConfirmDelete">
+          <span class="btn-text">Yes, Delete Product</span>
+          <span class="btn-spinner d-none"><i class="bi bi-arrow-repeat spin"></i> Removing...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: REGISTER NEW VENDOR                                                -->
+  <!-- ========================================================================= -->
+  <div class="custom-modal-overlay" id="addVendorModalOverlay">
+    <div class="custom-modal modal-md">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <div class="modal-badge-icon"><i class="bi bi-shop"></i></div>
+          <div>
+            <h3>Register Vendor Partner</h3>
+            <p>Add a new certified distributor or wholesale supplier.</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" id="btnCloseAddVendorModal">&times;</button>
+      </div>
+      <form id="addVendorForm" novalidate>
+        <div class="modal-body">
+          <div class="modal-alert d-none" id="addVendorModalAlert"></div>
+
+          <div class="form-group">
+            <label for="addVendorNameInput">Vendor Business Name <span class="req">*</span></label>
+            <input type="text" id="addVendorNameInput" placeholder="e.g. Apex Global Distributors" required>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label for="addVendorCodeInput">Vendor Code</label>
+              <input type="text" id="addVendorCodeInput" placeholder="e.g. APX-GLB">
+            </div>
+            <div class="form-group flex-1">
+              <label for="addVendorCategoryInput">Category</label>
+              <input type="text" id="addVendorCategoryInput" placeholder="e.g. Authorized Wholesaler">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label for="addVendorEmailInput">Contact Email</label>
+              <input type="email" id="addVendorEmailInput" placeholder="contact@vendor.com">
+            </div>
+            <div class="form-group flex-1">
+              <label for="addVendorPhoneInput">Contact Phone</label>
+              <input type="text" id="addVendorPhoneInput" placeholder="+91 98000 00000">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="addVendorLocationInput">Hub Location / City</label>
+            <input type="text" id="addVendorLocationInput" placeholder="e.g. Bengaluru, Karnataka">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="secondary-btn" id="btnCancelAddVendorModal">Cancel</button>
+          <button type="submit" class="primary-btn" id="btnSubmitAddVendorModal">
+            <span class="btn-text">Register Vendor</span>
+            <span class="btn-spinner d-none"><i class="bi bi-arrow-repeat spin"></i> Saving...</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATIONS STACK -->
+  <div class="toast-stack" id="toastContainer"></div>
+
+  <!-- APPLICATION SCRIPTS -->
+  <script src="crud-dashboard.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>
