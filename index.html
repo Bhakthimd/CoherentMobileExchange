@@ -4747,6 +4747,9 @@ footer p{color:#d5b4c4;font-size:13px;margin:4px 0}
   <div class="logo-wrap" onclick="navigateTo('homePage')">
     <div class="logo-icon">📱</div>
     <div class="logo-text">Coherent<span>Mobiles</span></div>
+    <span class="city-badge" style="background:#eff6ff; color:#1d4ed8; padding:3px 9px; border-radius:12px; font-size:11px; font-weight:700; border:1px solid #bfdbfe; margin-left:8px;">
+      📍 Mysuru (K.T. Street Hub)
+    </span>
   </div>
   
   <nav class="nav-links">
@@ -4754,11 +4757,16 @@ footer p{color:#d5b4c4;font-size:13px;margin:4px 0}
     <a class="nav-link active nav-home-highlight" id="navHomeLink" onclick="navigateTo('homePage')">
       <span>🏠</span> Home
     </a>
-    <a class="nav-link" id="navSellLink" onclick="navigateTo('sellPage')">Sell Phone</a>
+    <a class="nav-link" id="navSellLink" onclick="openSellWizardModal()" style="color:#d6336c; font-weight:800; cursor:pointer;">
+      <span>⚡</span> Sell in Mysuru
+    </a>
     <a class="nav-link" id="navStoreLink" onclick="navigateTo('cataloguePage')">Browse Store</a>
-    <a class="nav-link" id="navValuationLink" onclick="startSellFlow()">Price Evaluation</a>
-    <a class="nav-link" id="navResultLink" onclick="navigateTo('aiEvaluationPage')">Exchange Quote</a>
-    
+    <a class="nav-link" id="navStoresMapLink" href="/stores.html">
+      <span>📍</span> K.T. Street Stores
+    </a>
+    <a class="nav-link" id="navTrackSellLink" onclick="openSellTrackingModal()" style="cursor:pointer;">
+      <span>🔍</span> Track Sell
+    </a>
     <a class="nav-link" id="navMyOrdersLink" onclick="openCustomerOrdersModal()" style="cursor:pointer;">
       <span>📦</span> My Orders
     </a>
@@ -4823,16 +4831,16 @@ footer p{color:#d5b4c4;font-size:13px;margin:4px 0}
   <section class="hero-sec">
     <div class="hero-grid">
       <div class="hero-info">
-        <span class="eyebrow">✦ NEXT-GEN CERTIFIED SMARTPHONE EXCHANGE</span>
-        <h1>Sell Smart at <span>Peak Value</span>. Upgrade Seamlessly.</h1>
-        <p>Get instant certified AI condition assessment, 15-digit GSMA verified IMEI lookup, guaranteed highest market price, and same-day free doorstep pickup.</p>
+        <span class="eyebrow">📍 MYSURU'S K.T. STREET TRUSTED MOBILE MARKETPLACE</span>
+        <h1>Sell Old Phone in <span>Mysuru</span>. Instant Cash on K.T. Street.</h1>
+        <p>Get instant price range estimate, free doorstep pickup across Mysuru city limits, or visit 5 partner mobile shops on K.T. Street (PIN 570001) for physical 15-point inspection, instant UPI/cash payout, and certified refurbished phones with 6-month store warranty.</p>
         
         <div class="hero-action-row">
-          <button class="primary-btn" style="font-size:15px;padding:15px 30px" onclick="startSellFlow()">
-            ♻️ Exchange Old Phone →
+          <button class="primary-btn" style="font-size:15px;padding:15px 30px" onclick="openSellWizardModal()">
+            ⚡ Sell Old Phone in Mysuru →
           </button>
-          <button class="secondary-btn" style="font-size:15px;padding:15px 28px" onclick="navigateTo('cataloguePage')">
-            📱 Browse New & Refurbished
+          <button class="secondary-btn" style="font-size:15px;padding:15px 28px" onclick="window.location.href='/stores.html'">
+            🗺️ K.T. Street Stores Map
           </button>
         </div>
 
@@ -4847,25 +4855,25 @@ footer p{color:#d5b4c4;font-size:13px;margin:4px 0}
             <option value="Xiaomi">Xiaomi</option>
           </select>
           <span id="quickValuationEst" style="font-weight:900;color:var(--primary);font-size:15px">Up to ₹68,000</span>
-          <button class="quick-val-btn" onclick="startSellFlowWithBrand()">Inspect Now →</button>
+          <button class="quick-val-btn" onclick="openSellWizardModal()">Inspect Now →</button>
         </div>
 
         <div class="stats-strip">
           <div class="stat-item">
-            <strong>₹6.4 Cr+</strong>
-            <span>Instant Cash Disbursed</span>
+            <strong>5 Stores</strong>
+            <span>K.T. Street Mysuru</span>
           </div>
           <div class="stat-item">
-            <strong>60 Sec</strong>
-            <span>AI Valuation Speed</span>
+            <strong>12 PINs</strong>
+            <span>Mysuru Free Pickup</span>
           </div>
           <div class="stat-item">
-            <strong>100% Free</strong>
-            <span>Doorstep Diagnostic & Pickup</span>
+            <strong>Instant Payout</strong>
+            <span>Cash / UPI in Minutes</span>
           </div>
           <div class="stat-item">
-            <strong>4.9 ★</strong>
-            <span>From 48,000+ Sellers</span>
+            <strong>24h Hold</strong>
+            <span>Reserve & Visit Option</span>
           </div>
         </div>
       </div>
@@ -7758,7 +7766,10 @@ function displayPhones(phones) {
               ${isOutOfStock ? `
                 <div class="stock-badge out-of-stock">Out of stock at all stores</div>
               ` : `
-                <div class="stock-badge in-stock">${totalStock} in stock · ${storeCount} ${storeCount === 1 ? 'store' : 'stores'}</div>
+                <div class="stock-badge in-stock">
+                  <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#10b981;margin-right:4px;"></span>
+                  Available on K.T. Street &bull; ${escapeHtml(phone.store_name || phone.vendor_name || 'Partner Store')}
+                </div>
               `}
             </div>
 
@@ -7783,7 +7794,14 @@ function displayPhones(phones) {
                 <button
                     class="details-btn"
                     onclick="showPhoneDetails('${escapeHtml(phone.name)}')">
-                    View Details
+                    Details
+                </button>
+
+                <button
+                    class="btn-reserve"
+                    onclick="openReserveModal(${phone.unit_id || phone.id || 0})"
+                    title="Hold for 24 hours to inspect in store">
+                    <i class="fa-solid fa-stopwatch"></i> Reserve (24h)
                 </button>
 
                 <button

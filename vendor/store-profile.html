@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Store Profile & Hours | CoherentMobiles Partner Portal</title>
+  <link rel="stylesheet" href="vendor.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .profile-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .profile-card h3 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 0.4rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .profile-card p {
+      font-size: 0.85rem;
+      color: #64748b;
+      margin-bottom: 1.25rem;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+    }
+    @media (max-width: 768px) {
+      .form-grid { grid-template-columns: 1fr; }
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .form-group label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #334155;
+    }
+    .form-control {
+      padding: 0.65rem 0.85rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-family: inherit;
+    }
+    .form-control:focus {
+      outline: none;
+      border-color: #d6336c;
+      box-shadow: 0 0 0 3px rgba(214, 51, 108, 0.1);
+    }
+    .hours-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    .hours-table th {
+      text-align: left;
+      padding: 0.5rem;
+      background: #f8fafc;
+      border-bottom: 2px solid #e2e8f0;
+      color: #475569;
+    }
+    .hours-table td {
+      padding: 0.65rem 0.5rem;
+      border-bottom: 1px solid #f1f5f9;
+      vertical-align: middle;
+    }
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .toggle-row input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: #d6336c;
+      cursor: pointer;
+    }
+    .toggle-label {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #1e293b;
+    }
+    .toggle-desc {
+      font-size: 0.8rem;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+  <div class="vendor-layout">
+    <aside class="vendor-sidebar" id="vendorSidebar"></aside>
+
+    <main class="vendor-main">
+      <header class="vendor-header" id="vendorHeader"></header>
+
+      <div class="vendor-content">
+        <form id="storeProfileForm" onsubmit="saveStoreProfile(event)">
+          <!-- General Details -->
+          <div class="profile-card">
+            <h3><i class="fa-solid fa-store" style="color: #d6336c;"></i> Shop Identity & K.T. Street Address</h3>
+            <p>Customers see this name, landmark, and address on the K.T. Street store locator map.</p>
+
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Shop / Store Name *</label>
+                <input type="text" id="storeName" required class="form-control" placeholder="e.g. Chamundi Mobile Galleria">
+              </div>
+              <div class="form-group">
+                <label>Landmark on K.T. Street</label>
+                <input type="text" id="landmark" class="form-control" placeholder="e.g. Near D. Banumaiah Circle">
+              </div>
+              <div class="form-group" style="grid-column: span 2;">
+                <label>Full Physical Address *</label>
+                <input type="text" id="addressLine" required class="form-control" placeholder="e.g. 42 K.T. Street, Mandi Mohalla, Mysuru - 570001">
+              </div>
+              <div class="form-group">
+                <label>Shop Contact Phone *</label>
+                <input type="tel" id="contactPhone" required class="form-control" placeholder="+91 821 242 1001">
+              </div>
+              <div class="form-group">
+                <label>WhatsApp Number for Customer Inquiries *</label>
+                <input type="tel" id="whatsappNumber" required class="form-control" placeholder="+91 98450 11001">
+              </div>
+              <div class="form-group">
+                <label>Latitude (~12.3052 N)</label>
+                <input type="number" id="latitude" step="0.0001" class="form-control">
+              </div>
+              <div class="form-group">
+                <label>Longitude (~76.6551 E)</label>
+                <input type="number" id="longitude" step="0.0001" class="form-control">
+              </div>
+            </div>
+          </div>
+
+          <!-- Services Offered -->
+          <div class="profile-card">
+            <h3><i class="fa-solid fa-bell-concierge" style="color: #d6336c;"></i> Services & Fulfillment Options</h3>
+            <p>Select which services your physical store offers to Mysuru customers.</p>
+
+            <div class="toggle-row">
+              <input type="checkbox" id="acceptsWalkIn">
+              <div>
+                <div class="toggle-label">Accept Walk-in Customers</div>
+                <div class="toggle-desc">Customers can visit your K.T. Street shop to browse, test, and buy phones in person.</div>
+              </div>
+            </div>
+
+            <div class="toggle-row">
+              <input type="checkbox" id="offersHomePickup">
+              <div>
+                <div class="toggle-label">Offer Doorstep Buyback Pickup in Mysuru</div>
+                <div class="toggle-desc">Your staff can pick up sell requests from customer homes in serviceable Mysuru pincodes.</div>
+              </div>
+            </div>
+
+            <div class="toggle-row">
+              <input type="checkbox" id="offersDoorstepDelivery">
+              <div>
+                <div class="toggle-label">Offer Doorstep Refurb Delivery</div>
+                <div class="toggle-desc">Deliver purchased refurbished phones to customers in Mysuru with Pay on Delivery.</div>
+              </div>
+            </div>
+
+            <div class="toggle-row">
+              <input type="checkbox" id="buybackEnabled">
+              <div>
+                <div class="toggle-label">Instant Cash Buyback & Exchange Enabled</div>
+                <div class="toggle-desc">Perform 15-point inspection and instant cash/UPI payouts for old phone sell requests.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Weekly Hours -->
+          <div class="profile-card">
+            <h3><i class="fa-regular fa-clock" style="color: #d6336c;"></i> Weekly Opening & Closing Hours</h3>
+            <p>Customers use these hours to check if your K.T. Street store is currently Open Now.</p>
+
+            <table class="hours-table">
+              <thead>
+                <tr>
+                  <th style="width: 130px;">Day</th>
+                  <th style="width: 140px;">Open Time</th>
+                  <th style="width: 140px;">Close Time</th>
+                  <th>Weekly Off (Closed)</th>
+                </tr>
+              </thead>
+              <tbody id="hoursTbody">
+                <!-- Built dynamically -->
+              </tbody>
+            </table>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-bottom: 2rem;">
+            <button type="submit" class="btn btn-primary" style="padding: 0.75rem 2rem; font-size: 1rem;">
+              <i class="fa-solid fa-floppy-disk"></i> Save Store Profile
+            </button>
+          </div>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <script src="vendor.js"></script>
+  <script>
+    const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      await VendorApp.init("store-profile", "Store Profile & Hours", "Configure your K.T. Street location, weekly schedule, and active services");
+      loadProfile();
+    });
+
+    async function loadProfile() {
+      try {
+        const res = await fetch("/api/vendor/store-profile");
+        const data = await res.json();
+        if (data.success && data.store) {
+          const s = data.store;
+          document.getElementById('storeName').value = s.store_name || s.vendor_name || '';
+          document.getElementById('addressLine').value = s.address_line || s.address || '';
+          document.getElementById('landmark').value = s.landmark || '';
+          document.getElementById('contactPhone').value = s.contact_phone || '';
+          document.getElementById('whatsappNumber').value = s.whatsapp_number || s.contact_phone || '';
+          document.getElementById('latitude').value = s.latitude || 12.3052;
+          document.getElementById('longitude').value = s.longitude || 76.6551;
+
+          document.getElementById('acceptsWalkIn').checked = !!s.accepts_walk_in;
+          document.getElementById('offersHomePickup').checked = !!s.offers_home_pickup;
+          document.getElementById('offersDoorstepDelivery').checked = !!s.offers_doorstep_delivery;
+          document.getElementById('buybackEnabled').checked = !!s.buyback_enabled;
+
+          renderHoursTable(s.opening_hours || {});
+        }
+      } catch (err) {
+        VendorApp.showToast("Failed to load store profile", false);
+      }
+    }
+
+    function renderHoursTable(hoursObj) {
+      const tbody = document.getElementById('hoursTbody');
+      tbody.innerHTML = DAYS.map(day => {
+        const d = hoursObj[day] || { open: "10:00", close: "21:00", is_closed: false };
+        const isClosed = d.is_closed || d.closed;
+
+        return `
+          <tr>
+            <td style="font-weight: 600; text-transform: capitalize;">${day}</td>
+            <td>
+              <input type="time" id="open_${day}" value="${d.open || '10:00'}" class="form-control" style="padding: 0.35rem 0.6rem;" ${isClosed ? 'disabled' : ''}>
+            </td>
+            <td>
+              <input type="time" id="close_${day}" value="${d.close || '21:00'}" class="form-control" style="padding: 0.35rem 0.6rem;" ${isClosed ? 'disabled' : ''}>
+            </td>
+            <td>
+              <label style="display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer; color: #64748b; font-size: 0.8rem;">
+                <input type="checkbox" id="closed_${day}" ${isClosed ? 'checked' : ''} onchange="toggleDayClosed('${day}')" style="accent-color: #ef4444;"> Closed (Weekly Off)
+              </label>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function toggleDayClosed(day) {
+      const closed = document.getElementById(`closed_${day}`).checked;
+      document.getElementById(`open_${day}`).disabled = closed;
+      document.getElementById(`close_${day}`).disabled = closed;
+    }
+
+    async function saveStoreProfile(e) {
+      e.preventDefault();
+
+      const hours = {};
+      DAYS.forEach(day => {
+        const isClosed = document.getElementById(`closed_${day}`).checked;
+        hours[day] = {
+          open: document.getElementById(`open_${day}`).value || "10:00",
+          close: document.getElementById(`close_${day}`).value || "21:00",
+          is_closed: isClosed
+        };
+      });
+
+      const payload = {
+        store_name: document.getElementById('storeName').value,
+        address_line: document.getElementById('addressLine').value,
+        landmark: document.getElementById('landmark').value,
+        contact_phone: document.getElementById('contactPhone').value,
+        whatsapp_number: document.getElementById('whatsappNumber').value,
+        latitude: parseFloat(document.getElementById('latitude').value),
+        longitude: parseFloat(document.getElementById('longitude').value),
+        accepts_walk_in: document.getElementById('acceptsWalkIn').checked,
+        offers_home_pickup: document.getElementById('offersHomePickup').checked,
+        offers_doorstep_delivery: document.getElementById('offersDoorstepDelivery').checked,
+        buyback_enabled: document.getElementById('buybackEnabled').checked,
+        opening_hours: hours
+      };
+
+      try {
+        const res = await fetch("/api/vendor/store-profile", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          VendorApp.showToast("Store profile and hours updated successfully!");
+        } else {
+          VendorApp.showToast(data.error || "Update failed", false);
+        }
+      } catch (err) {
+        VendorApp.showToast("Server error", false);
+      }
+    }
+  </script>
+</body>
+</html>

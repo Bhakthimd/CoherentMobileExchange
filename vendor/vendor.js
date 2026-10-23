@@ -85,6 +85,12 @@ const VendorApp = {
         <a href="dashboard.html" class="nav-item ${activePage === 'dashboard' ? 'active' : ''}">
           <span class="icon">📊</span> Dashboard
         </a>
+        <a href="sell-requests.html" class="nav-item ${activePage === 'sell-requests' ? 'active' : ''}">
+          <span class="icon">📥</span> Sell Requests
+        </a>
+        <a href="reservations.html" class="nav-item ${activePage === 'reservations' ? 'active' : ''}">
+          <span class="icon">⏱️</span> Holds (24h)
+        </a>
         <a href="inventory.html" class="nav-item ${activePage === 'inventory' ? 'active' : ''}">
           <span class="icon">📱</span> Inventory Units
         </a>
@@ -97,7 +103,16 @@ const VendorApp = {
         <a href="orders.html" class="nav-item ${activePage === 'orders' ? 'active' : ''}">
           <span class="icon">📦</span> Customer Orders
         </a>
+        <a href="store-profile.html" class="nav-item ${activePage === 'store-profile' ? 'active' : ''}">
+          <span class="icon">🏪</span> Store Profile & Hours
+        </a>
+        <a href="/stores.html" class="nav-item" target="_blank">
+          <span class="icon">🗺️</span> K.T. Street Map ↗
+        </a>
         <a href="/index.html" class="nav-item" target="_blank">
+          <span class="icon">🌐</span> Public Storefront ↗
+        </a>
+      </nav>
           <span class="icon">🌐</span> Public Storefront ↗
         </a>
       </nav>

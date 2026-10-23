@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sell Requests Inbox | CoherentMobiles Partner Portal</title>
+  <link rel="stylesheet" href="vendor.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .tab-nav {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 0.5rem;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      padding: 0.6rem 1.2rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #64748b;
+      cursor: pointer;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.15s;
+    }
+    .tab-btn:hover { background: #f1f5f9; color: #0f172a; }
+    .tab-btn.active {
+      background: #fdf2f6;
+      color: #d6336c;
+      border-bottom: 2px solid #d6336c;
+    }
+    .badge-count {
+      background: #e2e8f0;
+      color: #334155;
+      padding: 0.15rem 0.5rem;
+      border-radius: 10px;
+      font-size: 0.75rem;
+    }
+    .tab-btn.active .badge-count {
+      background: #d6336c;
+      color: #ffffff;
+    }
+    .sr-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+    .sr-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 1px solid #f1f5f9;
+      padding-bottom: 0.65rem;
+    }
+    .sr-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1.2fr 1fr 1fr;
+      gap: 1rem;
+      font-size: 0.85rem;
+    }
+    @media (max-width: 900px) {
+      .sr-grid { grid-template-columns: 1fr; }
+    }
+    .sr-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      align-items: center;
+      border-top: 1px solid #f1f5f9;
+      padding-top: 0.75rem;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .status-submitted { background: #eff6ff; color: #1d4ed8; }
+    .status-store_confirmed { background: #fef3c7; color: #92400e; }
+    .status-inspected { background: #f3e8ff; color: #6b21a8; }
+    .status-offer_revised { background: #ffedd5; color: #9a3412; }
+    .status-accepted { background: #ecfdf5; color: #047857; }
+    .status-paid { background: #10b981; color: #ffffff; }
+    .status-rejected { background: #fee2e2; color: #b91c1c; }
+    .status-cancelled { background: #f1f5f9; color: #64748b; }
+  </style>
+</head>
+<body>
+  <div class="vendor-layout">
+    <aside class="vendor-sidebar" id="vendorSidebar"></aside>
+
+    <main class="vendor-main">
+      <header class="vendor-header" id="vendorHeader"></header>
+
+      <div class="vendor-content">
+        <!-- Tabs -->
+        <div class="tab-nav">
+          <button class="tab-btn active" id="tabAssigned" onclick="switchTab('assigned')">
+            <i class="fa-solid fa-inbox"></i> Assigned to My Store
+            <span class="badge-count" id="countAssigned">0</span>
+          </button>
+          <button class="tab-btn" id="tabPool" onclick="switchTab('pool')">
+            <i class="fa-solid fa-motorcycle"></i> Mysuru Pickup Pool (Claimable)
+            <span class="badge-count" id="countPool">0</span>
+          </button>
+        </div>
+
+        <!-- Requests List Container -->
+        <div id="requestsContainer">
+          <div style="text-align:center; padding: 3rem; color: #64748b;">
+            <i class="fa-solid fa-circle-notch fa-spin fa-2x"></i>
+            <p style="margin-top: 0.5rem;">Loading sell requests...</p>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal: Inspect & Set Final Offer -->
+  <div class="modal" id="modalOffer" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(15,23,42,0.6); z-index:2000; align-items:center; justify-content:center;">
+    <div style="background:#fff; border-radius:10px; max-width:500px; width:100%; padding:1.5rem; margin:1rem;">
+      <h3 style="margin-bottom:1rem; font-size:1.15rem;">15-Point Inspection & Final Offer</h3>
+      <form id="formOffer" onsubmit="submitFinalOffer(event)">
+        <input type="hidden" id="offerReqId">
+        <div style="margin-bottom:0.85rem;">
+          <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.3rem;">Final Offer Price (₹) *</label>
+          <input type="number" id="finalOfferPrice" required min="1000" step="100" class="form-input" style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:6px;">
+        </div>
+        <div style="margin-bottom:1rem;">
+          <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.3rem;">Inspection Notes / Defect Details</label>
+          <textarea id="finalOfferNotes" rows="3" class="form-input" style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:6px;" placeholder="e.g. Minor scratches on back glass, battery health at 88%."></textarea>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal('modalOffer')">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm">Submit Final Offer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Disburse Payout & Auto-Inventory -->
+  <div class="modal" id="modalPayout" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(15,23,42,0.6); z-index:2000; align-items:center; justify-content:center;">
+    <div style="background:#fff; border-radius:10px; max-width:540px; width:100%; padding:1.5rem; margin:1rem;">
+      <div style="display:flex; align-items:center; gap:0.6rem; color:#10b981; margin-bottom:0.8rem;">
+        <i class="fa-solid fa-money-bill-transfer fa-2x"></i>
+        <h3 style="color:#0f172a; margin:0; font-size:1.2rem;">Disburse Payment & Acquire Device</h3>
+      </div>
+      <p style="font-size:0.85rem; color:#64748b; margin-bottom:1rem;">
+        Confirming payment marks the trade-in as complete and <strong>automatically adds the inspected phone into your store inventory</strong> as an in-stock unit.
+      </p>
+      <form id="formPayout" onsubmit="submitPayout(event)">
+        <input type="hidden" id="payoutReqId">
+        <div style="margin-bottom:0.85rem;">
+          <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.3rem;">Payout Method *</label>
+          <select id="payoutMethod" class="form-input" style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:6px;">
+            <option value="cash">Instant Cash</option>
+            <option value="upi">Instant UPI Transfer</option>
+          </select>
+        </div>
+        <div style="margin-bottom:0.85rem;">
+          <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.3rem;">Payment Reference Number *</label>
+          <input type="text" id="payoutReference" required placeholder="e.g. UPI/2026/MYS/9880123456 or CASH-VOUCHER-42" class="form-input" style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:6px;">
+        </div>
+        <div style="margin-bottom:1rem;">
+          <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.3rem;">Refurbished Selling Price for Inventory (₹)</label>
+          <input type="number" id="payoutResalePrice" placeholder="Auto-calculated at +25% margin" class="form-input" style="width:100%; padding:0.5rem; border:1px solid #cbd5e1; border-radius:6px;">
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal('modalPayout')">Cancel</button>
+          <button type="submit" class="btn btn-success btn-sm" style="background:#10b981; color:#fff;">Confirm Payout & Add to Stock</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="vendor.js"></script>
+  <script>
+    let currentTab = 'assigned';
+    let assignedList = [];
+    let poolList = [];
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      await VendorApp.init("sell-requests", "Customer Sell Requests", "Inspect, offer, and acquire used phones directly into your inventory");
+      loadRequests();
+    });
+
+    async function loadRequests() {
+      try {
+        const res = await fetch("/api/vendor/sell-requests");
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('countAssigned').textContent = data.assigned_count;
+          document.getElementById('countPool').textContent = data.pool_count;
+
+          assignedList = data.requests.filter(r => r.store_id !== null);
+          poolList = data.requests.filter(r => r.store_id === null);
+
+          renderCurrentTab();
+        }
+      } catch (err) {
+        document.getElementById('requestsContainer').innerHTML = '<p style="color:#ef4444;">Error loading requests.</p>';
+      }
+    }
+
+    function switchTab(tab) {
+      currentTab = tab;
+      document.getElementById('tabAssigned').classList.toggle('active', tab === 'assigned');
+      document.getElementById('tabPool').classList.toggle('active', tab === 'pool');
+      renderCurrentTab();
+    }
+
+    function renderCurrentTab() {
+      const list = currentTab === 'assigned' ? assignedList : poolList;
+      const container = document.getElementById('requestsContainer');
+
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div style="text-align:center; padding:3rem; background:#fff; border-radius:10px; border:1px solid #e2e8f0; color:#64748b;">
+            <i class="fa-solid fa-box-open fa-2x" style="margin-bottom:0.5rem; color:#94a3b8;"></i>
+            <p>No ${currentTab === 'assigned' ? 'assigned sell requests' : 'unassigned home pickups in Mysuru'} right now.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = list.map(r => {
+        const statusClass = `status-${r.status}`;
+        const isPool = r.store_id === null;
+        const cleanPhone = (r.customer_phone || '').replace(/\D/g, '');
+        const whatsappMsg = encodeURIComponent(`Hello ${r.customer_name}, this is ${VendorApp.currentVendor?.store_name || 'CoherentMobiles partner store'} on K.T. Street regarding your sell request ${r.request_reference} for ${r.brand} ${r.model}.`);
+
+        return `
+          <div class="sr-card">
+            <div class="sr-header">
+              <div>
+                <span style="font-weight:700; color:#0f172a; font-size:1.05rem;">${r.request_reference}</span>
+                <span style="color:#64748b; font-size:0.85rem; margin-left:0.5rem;">Submitted on ${VendorApp.formatDate(r.created_at)}</span>
+              </div>
+              <span class="status-badge ${statusClass}">● ${r.status.replace('_', ' ')}</span>
+            </div>
+
+            <div class="sr-grid">
+              <div>
+                <span style="color:#64748b; font-size:0.75rem; text-transform:uppercase; font-weight:700;">Customer Details</span>
+                <div style="font-weight:600; margin-top:3px;">${escapeHtml(r.customer_name)}</div>
+                <div style="color:#475569;">📞 ${escapeHtml(r.customer_phone)}</div>
+                ${r.pincode ? `<div style="color:#64748b; font-size:0.8rem;"><i class="fa-solid fa-location-dot"></i> Mysuru PIN: <strong>${r.pincode}</strong></div>` : ''}
+              </div>
+
+              <div>
+                <span style="color:#64748b; font-size:0.75rem; text-transform:uppercase; font-weight:700;">Device Information</span>
+                <div style="font-weight:600; margin-top:3px;">${escapeHtml(r.brand)} ${escapeHtml(r.model)} (${r.storage || '128 GB'})</div>
+                <div style="font-family:monospace; color:#334155; font-size:0.8rem;">IMEI: ${r.imei}</div>
+                <div style="color:#64748b; font-size:0.8rem;">Screen: ${r.condition_answers?.screen || 'N/A'} &bull; Body: ${r.condition_answers?.body || 'N/A'}</div>
+              </div>
+
+              <div>
+                <span style="color:#64748b; font-size:0.75rem; text-transform:uppercase; font-weight:700;">Appointment & Slot</span>
+                <div style="font-weight:600; margin-top:3px;"><i class="fa-solid fa-calendar"></i> ${r.slot_date || 'Today'}</div>
+                <div style="color:#475569;"><i class="fa-solid fa-clock"></i> ${r.slot_time || '11:00 AM'}</div>
+                <div style="font-size:0.78rem; color:#64748b;">${r.fulfilment_type === 'home_pickup' ? '🚗 Home Pickup in Mysuru' : '🏪 Store Visit on K.T. Street'}</div>
+              </div>
+
+              <div>
+                <span style="color:#64748b; font-size:0.75rem; text-transform:uppercase; font-weight:700;">Valuation & Payout</span>
+                <div style="font-size:0.82rem; color:#64748b; margin-top:3px;">Est: ₹${r.estimated_min_price.toLocaleString('en-IN')} - ₹${r.estimated_max_price.toLocaleString('en-IN')}</div>
+                ${r.final_offer_price ? `<div style="font-weight:700; color:#d6336c; font-size:0.95rem;">Final Offer: ₹${r.final_offer_price.toLocaleString('en-IN')}</div>` : ''}
+                ${r.created_unit_id ? `<div style="font-size:0.8rem; color:#10b981; font-weight:600;"><i class="fa-solid fa-check"></i> Added as Unit #${r.created_unit_id}</div>` : ''}
+              </div>
+            </div>
+
+            <div class="sr-actions">
+              ${isPool ? `
+                <button class="btn btn-primary btn-sm" onclick="claimPickup(${r.request_id})">
+                  <i class="fa-solid fa-hand-holding-hand"></i> Claim This Home Pickup
+                </button>
+              ` : `
+                <a href="https://wa.me/91${cleanPhone}?text=${whatsappMsg}" target="_blank" class="btn btn-sm" style="background:#25d366; color:#fff;">
+                  <i class="fa-brands fa-whatsapp"></i> Chat with Customer
+                </a>
+
+                ${r.status === 'submitted' ? `
+                  <button class="btn btn-secondary btn-sm" onclick="updateStatus(${r.request_id}, 'store_confirmed')">
+                    <i class="fa-solid fa-check"></i> Confirm Slot
+                  </button>
+                ` : ''}
+
+                ${['submitted', 'store_confirmed', 'inspected', 'offer_revised'].includes(r.status) ? `
+                  <button class="btn btn-primary btn-sm" onclick="openOfferModal(${r.request_id}, ${r.estimated_max_price})">
+                    <i class="fa-solid fa-magnifying-glass"></i> Inspect & Set Final Offer
+                  </button>
+                ` : ''}
+
+                ${['inspected', 'offer_revised', 'accepted'].includes(r.status) ? `
+                  <button class="btn btn-sm" style="background:#10b981; color:#fff;" onclick="openPayoutModal(${r.request_id}, ${r.final_offer_price || r.estimated_max_price})">
+                    <i class="fa-solid fa-money-bill-wave"></i> Pay Customer & Add to Stock
+                  </button>
+                ` : ''}
+              `}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function claimPickup(reqId) {
+      if (!confirm("Claim this home pickup request for your K.T. Street store?")) return;
+      try {
+        const res = await fetch(`/api/vendor/sell-requests/${reqId}/claim`, { method: "POST" });
+        const data = await res.json();
+        if (data.success) {
+          VendorApp.showToast("Pickup claimed successfully!");
+          loadRequests();
+        } else {
+          VendorApp.showToast(data.error || "Claim failed", false);
+        }
+      } catch (err) {
+        VendorApp.showToast("Server error", false);
+      }
+    }
+
+    async function updateStatus(reqId, status) {
+      try {
+        const res = await fetch(`/api/vendor/sell-requests/${reqId}/status`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status })
+        });
+        const data = await res.json();
+        if (data.success) {
+          VendorApp.showToast("Status updated!");
+          loadRequests();
+        } else {
+          VendorApp.showToast(data.error || "Update failed", false);
+        }
+      } catch (err) {
+        VendorApp.showToast("Server error", false);
+      }
+    }
+
+    function openOfferModal(reqId, defaultPrice) {
+      document.getElementById('offerReqId').value = reqId;
+      document.getElementById('finalOfferPrice').value = defaultPrice || '';
+      document.getElementById('finalOfferNotes').value = '';
+      document.getElementById('modalOffer').style.display = 'flex';
+    }
+
+    async function submitFinalOffer(e) {
+      e.preventDefault();
+      const reqId = document.getElementById('offerReqId').value;
+      const price = parseFloat(document.getElementById('finalOfferPrice').value);
+      const notes = document.getElementById('finalOfferNotes').value;
+
+      try {
+        const res = await fetch(`/api/vendor/sell-requests/${reqId}/status`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            status: "offer_revised",
+            final_offer_price: price,
+            final_offer_notes: notes
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          closeModal('modalOffer');
+          VendorApp.showToast("Offer updated! The customer can now accept or decline.");
+          loadRequests();
+        } else {
+          VendorApp.showToast(data.error || "Submission failed", false);
+        }
+      } catch (err) {
+        VendorApp.showToast("Server error", false);
+      }
+    }
+
+    function openPayoutModal(reqId, price) {
+      document.getElementById('payoutReqId').value = reqId;
+      document.getElementById('payoutReference').value = `UPI/2026/MYS/${Math.floor(100000 + Math.random() * 900000)}`;
+      document.getElementById('payoutResalePrice').value = Math.round((price || 10000) * 1.25);
+      document.getElementById('modalPayout').style.display = 'flex';
+    }
+
+    async function submitPayout(e) {
+      e.preventDefault();
+      const reqId = document.getElementById('payoutReqId').value;
+      const method = document.getElementById('payoutMethod').value;
+      const ref = document.getElementById('payoutReference').value;
+      const resalePrice = document.getElementById('payoutResalePrice').value;
+
+      try {
+        const res = await fetch(`/api/vendor/sell-requests/${reqId}/pay`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            payout_method: method,
+            payout_reference: ref,
+            resale_price: resalePrice ? parseFloat(resalePrice) : undefined
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          closeModal('modalPayout');
+          VendorApp.showToast(data.message || "Payment completed and phone added to inventory!");
+          loadRequests();
+        } else {
+          VendorApp.showToast(data.error || "Payout failed", false);
+        }
+      } catch (err) {
+        VendorApp.showToast("Server error", false);
+      }
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).style.display = 'none';
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+  </script>
+</body>
+</html>

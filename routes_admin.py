@@ -6,7 +6,9 @@ import models
 from models import (
     User, UserRole, Vendor, VendorApprovalStatus,
     InventoryUnit, UnitStatus, Order, OrderItem,
-    Brand, PhoneModel, PhoneVariant, StockMovement
+    Brand, PhoneModel, PhoneVariant, StockMovement,
+    ServiceablePincode, PriceMatrix, SellRequest, SellRequestStatus,
+    SellRequestTimeline, Reservation, ReservationStatus, utc_now
 )
 from auth import login_required, role_required
 
@@ -169,3 +171,223 @@ def admin_stats():
         }), 200
     finally:
         db.close()
+
+
+# ---------------------------------------------------------------------------
+# Admin Pincodes Management
+# ---------------------------------------------------------------------------
+
+@admin_bp.route("/api/admin/pincodes", methods=["GET"])
+@login_required
+@role_required(UserRole.admin.value)
+def admin_list_pincodes():
+    """List all serviceable pincodes for Mysuru."""
+    db = SessionLocal()
+    try:
+        pins = db.query(ServiceablePincode).order_by(ServiceablePincode.pincode.asc()).all()
+        return jsonify({
+            "success": True,
+            "count": len(pins),
+            "pincodes": [p.to_dict() for p in pins]
+        }), 200
+    finally:
+        db.close()
+
+
+@admin_bp.route("/api/admin/pincodes", methods=["POST"])
+@login_required
+@role_required(UserRole.admin.value)
+def admin_add_pincode():
+    """Add a new serviceable pincode in Mysuru."""
+    data = request.get_json(silent=True) or {}
+    pincode = (data.get("pincode") or "").strip()
+    area_name = (data.get("area_name") or "").strip()
+    city = (data.get("city") or "Mysuru").strip()
+
+    if not pincode or not area_name:
+        return jsonify({"success": False, "error": "Pincode and area name are required."}), 400
+
+    db = SessionLocal()
+    try:
+        existing = db.query(ServiceablePincode).filter_by(pincode=pincode).first()
+        if existing:
+            existing.area_name = area_name
+            existing.is_active = True
+            db.commit()
+            db.refresh(existing)
+            return jsonify({"success": True, "pincode": existing.to_dict()}), 200
+
+        record = ServiceablePincode(
+            pincode=pincode,
+            area_name=area_name,
+            city=city,
+            is_active=True
+        )
+        db.add(record)
+        db.commit()
+        db.refresh(record)
+
+        return jsonify({"success": True, "pincode": record.to_dict()}), 201
+    finally:
+        db.close()
+
+
+@admin_bp.route("/api/admin/pincodes/<int:pincode_id>", methods=["PUT"])
+@login_required
+@role_required(UserRole.admin.value)
+def admin_update_pincode(pincode_id: int):
+    """Toggle active status or update area name for a pincode."""
+    data = request.get_json(silent=True) or {}
+    db = SessionLocal()
+    try:
+        record = db.query(ServiceablePincode).filter_by(id=pincode_id).first()
+        if not record:
+            return jsonify({"success": False, "error": "Pincode record not found."}), 404
+
+        if "area_name" in data:
+            record.area_name = data["area_name"].strip()
+        if "is_active" in data:
+            record.is_active = bool(data["is_active"])
+
+        db.commit()
+        db.refresh(record)
+        return jsonify({"success": True, "pincode": record.to_dict()}), 200
+    finally:
+        db.close()
+
+
+@admin_bp.route("/api/admin/pincodes/<int:pincode_id>", methods=["DELETE"])
+@login_required
+@role_required(UserRole.admin.value)
+def admin_delete_pincode(pincode_id: int):
+    """Delete or deactivate a pincode."""
+    db = SessionLocal()
+    try:
+        record = db.query(ServiceablePincode).filter_by(id=pincode_id).first()
+        if not record:
+            return jsonify({"success": False, "error": "Pincode record not found."}), 404
+
+        db.delete(record)
+        db.commit()
+        return jsonify({"success": True, "message": "Pincode removed."}), 200
+    finally:
+        db.close()
+
+
+# ---------------------------------------------------------------------------
+# Admin Price Matrix Management
+# ---------------------------------------------------------------------------
+
+@admin_bp.route("/api/admin/price-matrix", methods=["GET"])
+@login_required
+@role_required(UserRole.admin.value)
+def admin_list_price_matrix():
+    """List price matrix rules."""
+    db = SessionLocal()
+    try:
+        rules = db.query(PriceMatrix).order_by(PriceMatrix.brand.asc(), PriceMatrix.model.asc()).all()
+        return jsonify({
+            "success": True,
+            "count": len(rules),
+            "price_matrix": [r.to_dict() for r in rules]
+        }), 200
+    finally:
+        db.close()
+
+
+@admin_bp.route("/api/admin/price-matrix", methods=["POST"])
+@login_required
+@role_required(UserRole.admin.value)
+def admin_add_or_update_price_matrix():
+    """Create or update a valuation price matrix entry."""
+    data = request.get_json(silent=True) or {}
+    brand = (data.get("brand") or "").strip()
+    model = (data.get("model") or "").strip()
+    storage_gb = int(data.get("storage_gb") or 128)
+    base_price = float(data.get("base_price") or 0.0)
+
+    if not brand or not model or base_price <= 0:
+        return jsonify({"success": False, "error": "Brand, model, and valid base price are required."}), 400
+
+    db = SessionLocal()
+    try:
+        rule = db.query(PriceMatrix).filter_by(brand=brand, model=model, storage_gb=storage_gb).first()
+        if not rule:
+            rule = PriceMatrix(
+                brand=brand,
+                model=model,
+                storage_gb=storage_gb,
+                base_price=base_price,
+                screen_scratch_pct=float(data.get("screen_scratch_pct", 10.0)),
+                screen_cracked_pct=float(data.get("screen_cracked_pct", 35.0)),
+                body_dent_pct=float(data.get("body_dent_pct", 12.0)),
+                battery_low_pct=float(data.get("battery_low_pct", 15.0)),
+                camera_fault_pct=float(data.get("camera_fault_pct", 20.0)),
+                speaker_fault_pct=float(data.get("speaker_fault_pct", 10.0)),
+                accessories_deduction=float(data.get("accessories_deduction", 1000.0)),
+                is_active=bool(data.get("is_active", True))
+            )
+            db.add(rule)
+        else:
+            rule.base_price = base_price
+            if "screen_scratch_pct" in data:
+                rule.screen_scratch_pct = float(data["screen_scratch_pct"])
+            if "screen_cracked_pct" in data:
+                rule.screen_cracked_pct = float(data["screen_cracked_pct"])
+            if "body_dent_pct" in data:
+                rule.body_dent_pct = float(data["body_dent_pct"])
+            if "battery_low_pct" in data:
+                rule.battery_low_pct = float(data["battery_low_pct"])
+            if "camera_fault_pct" in data:
+                rule.camera_fault_pct = float(data["camera_fault_pct"])
+            if "speaker_fault_pct" in data:
+                rule.speaker_fault_pct = float(data["speaker_fault_pct"])
+            if "accessories_deduction" in data:
+                rule.accessories_deduction = float(data["accessories_deduction"])
+            if "is_active" in data:
+                rule.is_active = bool(data["is_active"])
+
+        db.commit()
+        db.refresh(rule)
+        return jsonify({"success": True, "rule": rule.to_dict()}), 200
+    finally:
+        db.close()
+
+
+# ---------------------------------------------------------------------------
+# Admin Sell Requests & Conversion Analytics
+# ---------------------------------------------------------------------------
+
+@admin_bp.route("/api/admin/sell-requests", methods=["GET"])
+@login_required
+@role_required(UserRole.admin.value)
+def admin_list_sell_requests():
+    """List all customer sell requests with funnel and conversion stats."""
+    db = SessionLocal()
+    try:
+        requests_list = db.query(SellRequest).order_by(SellRequest.created_at.desc()).all()
+
+        total = len(requests_list)
+        paid_count = sum(1 for r in requests_list if r.status == SellRequestStatus.paid.value)
+        inspected_count = sum(1 for r in requests_list if r.status in (
+            SellRequestStatus.inspected.value, SellRequestStatus.offer_revised.value,
+            SellRequestStatus.accepted.value, SellRequestStatus.paid.value
+        ))
+        total_payout_amount = sum(float(r.final_offer_price or 0.0) for r in requests_list if r.status == SellRequestStatus.paid.value)
+
+        conversion_rate = (paid_count / total * 100.0) if total > 0 else 0.0
+
+        return jsonify({
+            "success": True,
+            "metrics": {
+                "total_requests": total,
+                "inspected_count": inspected_count,
+                "paid_count": paid_count,
+                "conversion_rate_pct": round(conversion_rate, 1),
+                "total_payout_amount": total_payout_amount
+            },
+            "requests": [r.to_dict() for r in requests_list]
+        }), 200
+    finally:
+        db.close()
+

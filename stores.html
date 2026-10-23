@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Partner Stores on K.T. Street, Mysuru | CoherentMobiles</title>
+  <meta name="description" content="Find verified mobile stores on K.T. Street, Mysuru (570001). Sell your phone for instant cash, buy certified refurbished smartphones, or reserve a device.">
+  <meta name="keywords" content="Mobile stores K.T. Street Mysuru, Sell old phone Mysuru, Buy used iPhone Mysuru, refurbished phones Mysuru, Cashify Mysuru">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Partner Stores on K.T. Street, Mysuru | CoherentMobiles">
+  <meta property="og:description" content="Local refurbished phone marketplace. Visit partner shops on K.T. Street, Mysuru for instant device inspection, buyback, and certified phones with warranty.">
+  <meta property="og:type" content="website">
+
+  <!-- Leaflet CSS for OpenStreetMap -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <!-- Google Fonts & FontAwesome -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    :root {
+      --primary: #d6336c;
+      --primary-dark: #b02154;
+      --primary-light: #fdf2f6;
+      --secondary: #0f172a;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --border: #e2e8f0;
+      --radius: 12px;
+      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+      --success: #10b981;
+      --danger: #ef4444;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    /* Header & Navigation */
+    header {
+      background: #ffffff;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .nav-container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0.85rem 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      text-decoration: none;
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: var(--secondary);
+    }
+    .logo span { color: var(--primary); }
+    .city-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      padding: 0.2rem 0.6rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-left: 0.5rem;
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+    .nav-link {
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 500;
+      font-size: 0.95rem;
+      transition: color 0.15s;
+    }
+    .nav-link:hover, .nav-link.active { color: var(--primary); }
+    .btn-header {
+      background: var(--primary);
+      color: #ffffff;
+      padding: 0.5rem 1.1rem;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.9rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-header:hover { background: var(--primary-dark); }
+
+    /* Page Hero */
+    .page-hero {
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+      color: #ffffff;
+      padding: 2.5rem 1.25rem;
+      text-align: center;
+    }
+    .page-hero h1 {
+      font-size: 2.1rem;
+      font-weight: 800;
+      margin-bottom: 0.6rem;
+    }
+    .page-hero p {
+      color: #94a3b8;
+      font-size: 1.05rem;
+      max-width: 680px;
+      margin: 0 auto 1.25rem auto;
+    }
+    .hero-pills {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    .hero-pill {
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(8px);
+      padding: 0.35rem 0.85rem;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      color: #f1f5f9;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    /* Main Container */
+    .container {
+      max-width: 1280px;
+      margin: 2rem auto;
+      padding: 0 1.25rem;
+    }
+
+    /* Layout: Map + Stores List */
+    .locator-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.75rem;
+      min-height: 640px;
+    }
+
+    @media (max-width: 960px) {
+      .locator-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Map Box */
+    .map-wrapper {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      height: 640px;
+    }
+    .map-header {
+      padding: 0.9rem 1.2rem;
+      background: #ffffff;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .map-header h3 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      color: var(--secondary);
+    }
+    #stores-map {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+    }
+
+    /* Stores List Box */
+    .stores-sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      height: 640px;
+    }
+
+    /* Filters Bar */
+    .filters-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .search-input-wrap {
+      position: relative;
+    }
+    .search-input-wrap i {
+      position: absolute;
+      left: 0.85rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+    }
+    .search-input {
+      width: 100%;
+      padding: 0.65rem 0.85rem 0.65rem 2.4rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .search-input:focus { border-color: var(--primary); }
+
+    .filter-chips {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .filter-chip {
+      background: #f1f5f9;
+      border: 1px solid var(--border);
+      padding: 0.35rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.15s;
+    }
+    .filter-chip:hover {
+      background: #e2e8f0;
+      color: var(--text);
+    }
+    .filter-chip.active {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+    }
+
+    /* Store Cards Scroll Area */
+    .stores-cards-scroll {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      padding-right: 0.35rem;
+    }
+    .stores-cards-scroll::-webkit-scrollbar { width: 6px; }
+    .stores-cards-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+    .store-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.15rem;
+      box-shadow: var(--shadow);
+      transition: transform 0.15s, border-color 0.15s;
+      cursor: pointer;
+      position: relative;
+    }
+    .store-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--primary);
+    }
+    .store-card.selected {
+      border: 2px solid var(--primary);
+      background: #fffbfa;
+    }
+
+    .store-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.4rem;
+    }
+    .store-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--secondary);
+    }
+    .badge-open {
+      background: #ecfdf5;
+      color: var(--success);
+      border: 1px solid #a7f3d0;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.15rem 0.5rem;
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .badge-closed {
+      background: #fef2f2;
+      color: var(--danger);
+      border: 1px solid #fecaca;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.15rem 0.5rem;
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .store-address {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 0.6rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.4rem;
+    }
+    .store-landmark {
+      font-weight: 600;
+      color: #475569;
+    }
+    .store-services {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.85rem;
+    }
+    .service-tag {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #475569;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+    }
+
+    .store-actions {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      border-top: 1px solid #f1f5f9;
+      padding-top: 0.75rem;
+    }
+    .btn-action {
+      flex: 1;
+      padding: 0.45rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      border: 1px solid var(--border);
+      background: #ffffff;
+      color: var(--text);
+      transition: all 0.15s;
+    }
+    .btn-action:hover { background: #f8fafc; border-color: #cbd5e1; }
+    .btn-action.btn-whatsapp {
+      background: #25d366;
+      color: #ffffff;
+      border-color: #25d366;
+    }
+    .btn-action.btn-whatsapp:hover { background: #1ebc59; }
+    .btn-action.btn-directions {
+      background: #0f172a;
+      color: #ffffff;
+      border-color: #0f172a;
+    }
+    .btn-action.btn-directions:hover { background: #1e293b; }
+    .btn-view-stock {
+      background: var(--primary-light);
+      color: var(--primary);
+      border-color: #fbcfe8;
+    }
+    .btn-view-stock:hover {
+      background: #fce7f3;
+    }
+
+    /* Modal for Store Inventory / Partner Form */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(4px);
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.25rem;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal-box {
+      background: #ffffff;
+      border-radius: var(--radius);
+      max-width: 680px;
+      width: 100%;
+      max-height: 88vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2);
+      display: flex;
+      flex-direction: column;
+    }
+    .modal-header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-header h3 { font-size: 1.2rem; font-weight: 700; }
+    .btn-close {
+      background: none;
+      border: none;
+      font-size: 1.25rem;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+    .modal-body { padding: 1.5rem; }
+
+    /* Custom Leaflet Marker styling */
+    .custom-store-pin {
+      background: var(--primary);
+      color: #ffffff;
+      border-radius: 50%;
+      width: 34px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      box-shadow: 0 4px 10px rgba(214, 51, 108, 0.45);
+      border: 2px solid #ffffff;
+    }
+  </style>
+
+  <!-- Schema.org LocalBusiness JSON-LD -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "ElectronicsStore",
+    "name": "CoherentMobiles - K.T. Street Mysuru Hub",
+    "description": "Cashify-style mobile marketplace on K.T. Street, Mysuru for selling used smartphones and buying certified refurbished devices.",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "K.T. Street, Mandi Mohalla",
+      "addressLocality": "Mysuru",
+      "addressRegion": "Karnataka",
+      "postalCode": "570001",
+      "addressCountry": "IN"
+    },
+    "geo": {
+      "@type": "GeoCoordinates",
+      "latitude": 12.3060,
+      "longitude": 76.6548
+    },
+    "telephone": "+91-821-242-1001",
+    "priceRange": "INR 5000 - 90000"
+  }
+  </script>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="nav-container">
+      <a href="/index.html" class="logo">
+        <i class="fa-solid fa-mobile-screen-button"></i>
+        <span>Coherent</span>Mobiles
+        <span class="city-badge"><i class="fa-solid fa-location-dot"></i> Mysuru</span>
+      </a>
+      <div class="nav-links">
+        <a href="/index.html" class="nav-link">Home</a>
+        <a href="/index.html#buy" class="nav-link">Buy Phones</a>
+        <a href="/index.html#sell" class="nav-link">Sell Old Phone</a>
+        <a href="/stores.html" class="nav-link active">Stores on K.T. Street</a>
+        <button class="btn-header" onclick="openPartnerModal()">
+          <i class="fa-solid fa-store"></i> Partner With Us
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Page Hero -->
+  <section class="page-hero">
+    <h1>Partner Stores on K.T. Street, Mysuru</h1>
+    <p>Visit any of our 5 partner shops on K.T. Street (PIN 570001) for instant in-store inspection, immediate UPI/cash payout, or to pick up certified refurbished smartphones.</p>
+    <div class="hero-pills">
+      <span class="hero-pill"><i class="fa-solid fa-bolt"></i> Instant In-Person Valuation</span>
+      <span class="hero-pill"><i class="fa-solid fa-shield-halved"></i> 6-Month Store Warranty</span>
+      <span class="hero-pill"><i class="fa-solid fa-motorcycle"></i> Doorstep Pickup Available</span>
+      <span class="hero-pill"><i class="fa-solid fa-clock"></i> Open 7 Days</span>
+    </div>
+  </section>
+
+  <!-- Main Store Locator Layout -->
+  <main class="container">
+    <div class="locator-layout">
+
+      <!-- Map View -->
+      <div class="map-wrapper">
+        <div class="map-header">
+          <h3><i class="fa-solid fa-map-location-dot" style="color: var(--primary);"></i> Interactive Map (OpenStreetMap)</h3>
+          <span style="font-size: 0.85rem; color: var(--text-muted);"><i class="fa-solid fa-street-view"></i> Centered on K.T. Street</span>
+        </div>
+        <div id="stores-map"></div>
+      </div>
+
+      <!-- Stores Sidebar -->
+      <div class="stores-sidebar">
+        <!-- Search & Filter Bar -->
+        <div class="filters-card">
+          <div class="search-input-wrap">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="store-search" class="search-input" placeholder="Search by shop name, landmark, address..." oninput="handleSearch()">
+          </div>
+          <div class="filter-chips">
+            <button class="filter-chip active" data-filter="all" onclick="applyFilter('all')">All Stores</button>
+            <button class="filter-chip" data-filter="open" onclick="applyFilter('open')"><i class="fa-solid fa-door-open"></i> Open Now</button>
+            <button class="filter-chip" data-filter="walk_in" onclick="applyFilter('walk_in')">Walk-in Accepted</button>
+            <button class="filter-chip" data-filter="home_pickup" onclick="applyFilter('home_pickup')">Home Pickup</button>
+          </div>
+        </div>
+
+        <!-- Store Cards -->
+        <div class="stores-cards-scroll" id="stores-list">
+          <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+            <i class="fa-solid fa-circle-notch fa-spin fa-2x"></i>
+            <p style="margin-top: 0.5rem;">Loading K.T. Street stores...</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Store Detail Modal -->
+  <div class="modal-overlay" id="store-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modal-store-name">Store Details</h3>
+        <button class="btn-close" onclick="closeStoreModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="modal-store-body">
+        <!-- Filled dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Partner With Us Modal -->
+  <div class="modal-overlay" id="partner-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Become a Partner Store on K.T. Street</h3>
+        <button class="btn-close" onclick="closePartnerModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.25rem;">
+          Own a mobile shop on K.T. Street, Mysuru? Join CoherentMobiles to receive customer sell requests, sell your inventory online, and grow your local walk-in footfall.
+        </p>
+        <form id="partner-form" onsubmit="submitPartnerLead(event)" style="display: flex; flex-direction: column; gap: 0.85rem;">
+          <div>
+            <label style="display:block; font-size: 0.82rem; font-weight:600; margin-bottom:0.25rem;">Store Name *</label>
+            <input type="text" id="partner-store-name" required placeholder="e.g. Royal Phone World" class="search-input" style="padding-left: 0.85rem;">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div>
+              <label style="display:block; font-size: 0.82rem; font-weight:600; margin-bottom:0.25rem;">Owner / Manager *</label>
+              <input type="text" id="partner-owner-name" required placeholder="Full Name" class="search-input" style="padding-left: 0.85rem;">
+            </div>
+            <div>
+              <label style="display:block; font-size: 0.82rem; font-weight:600; margin-bottom:0.25rem;">Phone Number *</label>
+              <input type="tel" id="partner-phone" required placeholder="+91 98..." class="search-input" style="padding-left: 0.85rem;">
+            </div>
+          </div>
+          <div>
+            <label style="display:block; font-size: 0.82rem; font-weight:600; margin-bottom:0.25rem;">Shop Address (K.T. Street)</label>
+            <input type="text" id="partner-address" placeholder="e.g. 182 K.T. Street, near Central Market" class="search-input" style="padding-left: 0.85rem;">
+          </div>
+          <div id="partner-alert" style="display:none; padding: 0.65rem; border-radius: 6px; font-size: 0.85rem;"></div>
+          <button type="submit" class="btn-header" style="justify-content: center; padding: 0.75rem; margin-top: 0.5rem;">
+            <i class="fa-solid fa-paper-plane"></i> Submit Partnership Application
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <script>
+    let allStores = [];
+    let map = null;
+    let markersLayer = null;
+    let currentFilter = 'all';
+
+    document.addEventListener("DOMContentLoaded", () => {
+      initMap();
+      fetchStores();
+    });
+
+    function initMap() {
+      // Centered on K.T. Street, Mysuru (12.3060, 76.6548)
+      map = L.map('stores-map').setView([12.3060, 76.6548], 15.5);
+
+      // OpenStreetMap Free Tile Layer (No API Key Required)
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(map);
+
+      markersLayer = L.layerGroup().addTo(map);
+    }
+
+    async function fetchStores() {
+      try {
+        const res = await fetch('/api/stores');
+        const data = await res.json();
+        if (data.success) {
+          allStores = data.stores;
+          renderStores(allStores);
+          renderMarkers(allStores);
+        }
+      } catch (err) {
+        console.error("Error fetching stores:", err);
+        document.getElementById('stores-list').innerHTML = `
+          <div style="text-align: center; color: var(--danger); padding: 2rem;">
+            <p>Could not load stores. Please check your connection.</p>
+          </div>
+        `;
+      }
+    }
+
+    function renderMarkers(stores) {
+      if (!markersLayer) return;
+      markersLayer.clearLayers();
+
+      stores.forEach(store => {
+        const customIcon = L.divIcon({
+          className: 'custom-pin-wrapper',
+          html: `<div class="custom-store-pin"><i class="fa-solid fa-store"></i></div>`,
+          iconSize: [34, 34],
+          iconAnchor: [17, 34],
+          popupAnchor: [0, -32]
+        });
+
+        const statusBadge = store.is_open 
+          ? `<span style="color: #10b981; font-weight:700;"><i class="fa-solid fa-circle" style="font-size:8px;"></i> Open Now</span>`
+          : `<span style="color: #ef4444; font-weight:700;"><i class="fa-solid fa-circle" style="font-size:8px;"></i> Closed</span>`;
+
+        const popupContent = `
+          <div style="font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.4; padding: 4px;">
+            <h4 style="margin: 0 0 4px 0; font-size: 14px; font-weight: 700; color: #0f172a;">${escapeHtml(store.store_name)}</h4>
+            <div style="margin-bottom: 6px;">${statusBadge} &bull; <strong>${store.inventory_count || 0}</strong> phones in stock</div>
+            <p style="margin: 0 0 8px 0; color: #64748b; font-size: 12px;">${escapeHtml(store.address_line || store.address)}</p>
+            <div style="display: flex; gap: 6px;">
+              <a href="${store.google_maps_url}" target="_blank" style="background:#0f172a; color:#fff; padding:4px 8px; border-radius:4px; text-decoration:none; font-size:11px; font-weight:600;"><i class="fa-solid fa-location-arrow"></i> Directions</a>
+              <a href="https://wa.me/91${cleanPhone(store.whatsapp_number)}" target="_blank" style="background:#25d366; color:#fff; padding:4px 8px; border-radius:4px; text-decoration:none; font-size:11px; font-weight:600;"><i class="fa-brands fa-whatsapp"></i> Chat</a>
+            </div>
+          </div>
+        `;
+
+        const marker = L.marker([store.latitude, store.longitude], { icon: customIcon })
+          .bindPopup(popupContent);
+
+        marker.on('click', () => {
+          highlightCard(store.id);
+        });
+
+        markersLayer.addLayer(marker);
+      });
+    }
+
+    function renderStores(stores) {
+      const container = document.getElementById('stores-list');
+      if (stores.length === 0) {
+        container.innerHTML = `
+          <div style="text-align:center; padding: 2.5rem; color: var(--text-muted);">
+            <i class="fa-solid fa-store-slash fa-2x" style="margin-bottom:0.5rem; color:#94a3b8;"></i>
+            <p>No stores matching your criteria on K.T. Street.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = stores.map(store => {
+        const isOpen = store.is_open;
+        const badge = isOpen
+          ? `<span class="badge-open"><span class="badge-dot"></span> Open</span>`
+          : `<span class="badge-closed"><span class="badge-dot"></span> Closed</span>`;
+
+        return `
+          <div class="store-card" id="card-store-${store.id}" onclick="selectStore(${store.id}, ${store.latitude}, ${store.longitude})">
+            <div class="store-card-header">
+              <h4 class="store-title">${escapeHtml(store.store_name)}</h4>
+              ${badge}
+            </div>
+            <div class="store-address">
+              <i class="fa-solid fa-location-dot" style="color: var(--primary); margin-top: 2px;"></i>
+              <div>
+                <span>${escapeHtml(store.address_line || store.address)}</span>
+                ${store.landmark ? `<br><span class="store-landmark"><i class="fa-solid fa-signs-post"></i> Landmark: ${escapeHtml(store.landmark)}</span>` : ''}
+              </div>
+            </div>
+            <div class="store-services">
+              <span class="service-tag"><i class="fa-solid fa-mobile-screen"></i> ${store.inventory_count || 0} Phones in Stock</span>
+              ${store.accepts_walk_in ? `<span class="service-tag"><i class="fa-solid fa-person-walking"></i> Walk-in</span>` : ''}
+              ${store.offers_home_pickup ? `<span class="service-tag"><i class="fa-solid fa-truck-pickup"></i> Home Pickup</span>` : ''}
+              ${store.buyback_enabled ? `<span class="service-tag"><i class="fa-solid fa-indian-rupee-sign"></i> Instant Cash</span>` : ''}
+            </div>
+            <div class="store-actions">
+              <a href="tel:${store.phone}" class="btn-action" onclick="event.stopPropagation()">
+                <i class="fa-solid fa-phone"></i> Call
+              </a>
+              <a href="https://wa.me/91${cleanPhone(store.whatsapp_number)}" target="_blank" class="btn-action btn-whatsapp" onclick="event.stopPropagation()">
+                <i class="fa-brands fa-whatsapp"></i> WhatsApp
+              </a>
+              <a href="${store.google_maps_url}" target="_blank" class="btn-action btn-directions" onclick="event.stopPropagation()">
+                <i class="fa-solid fa-diamond-turn-right"></i> Directions
+              </a>
+              <button class="btn-action btn-view-stock" onclick="event.stopPropagation(); viewStoreInventory(${store.id})">
+                <i class="fa-solid fa-eye"></i> Stock
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function selectStore(storeId, lat, lng) {
+      highlightCard(storeId);
+      if (map) {
+        map.flyTo([lat, lng], 17, { duration: 1.0 });
+      }
+    }
+
+    function highlightCard(storeId) {
+      document.querySelectorAll('.store-card').forEach(c => c.classList.remove('selected'));
+      const card = document.getElementById(`card-store-${storeId}`);
+      if (card) {
+        card.classList.add('selected');
+        card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+
+    function handleSearch() {
+      const q = document.getElementById('store-search').value.toLowerCase().trim();
+      let filtered = allStores.filter(s => {
+        const nameMatch = s.store_name.toLowerCase().includes(q) || s.vendor_name.toLowerCase().includes(q);
+        const addrMatch = (s.address_line || s.address || '').toLowerCase().includes(q);
+        const landMatch = (s.landmark || '').toLowerCase().includes(q);
+        return nameMatch || addrMatch || landMatch;
+      });
+
+      if (currentFilter === 'open') {
+        filtered = filtered.filter(s => s.is_open);
+      } else if (currentFilter === 'walk_in') {
+        filtered = filtered.filter(s => s.accepts_walk_in);
+      } else if (currentFilter === 'home_pickup') {
+        filtered = filtered.filter(s => s.offers_home_pickup);
+      }
+
+      renderStores(filtered);
+      renderMarkers(filtered);
+    }
+
+    function applyFilter(filter) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-chip').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === filter);
+      });
+      handleSearch();
+    }
+
+    async function viewStoreInventory(storeId) {
+      const modal = document.getElementById('store-modal');
+      const body = document.getElementById('modal-store-body');
+      const title = document.getElementById('modal-store-name');
+
+      body.innerHTML = '<div style="text-align:center; padding: 2rem;"><i class="fa-solid fa-circle-notch fa-spin fa-2x"></i></div>';
+      modal.classList.add('active');
+
+      try {
+        const res = await fetch(`/api/stores/${storeId}`);
+        const data = await res.json();
+        if (data.success) {
+          const s = data.store;
+          title.textContent = s.store_name;
+
+          let hoursHtml = '<table style="width:100%; font-size:12px; margin-top:8px; border-collapse:collapse;">';
+          if (s.opening_hours) {
+            for (const [day, val] of Object.entries(s.opening_hours)) {
+              const isClosed = val.is_closed || val.closed;
+              const timeTxt = isClosed ? '<span style="color:#ef4444; font-weight:600;">Closed (Weekly Off)</span>' : `${val.open} - ${val.close}`;
+              hoursHtml += `<tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:4px 0; text-transform:capitalize; font-weight:500;">${day}</td><td style="text-align:right; color:#475569;">${timeTxt}</td></tr>`;
+            }
+          }
+          hoursHtml += '</table>';
+
+          let inventoryHtml = '';
+          if (s.inventory && s.inventory.length > 0) {
+            inventoryHtml = s.inventory.map(item => `
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid #e2e8f0;">
+                <div>
+                  <strong style="font-size:14px; color:#0f172a;">${escapeHtml(item.device_name)}</strong>
+                  <div style="font-size:12px; color:#64748b;">${item.storage || ''} &bull; Grade ${item.condition_grade || 'Good'} &bull; Battery ${item.battery_health || 90}%</div>
+                </div>
+                <div style="text-align:right;">
+                  <div style="font-weight:700; color:#d6336c; font-size:14px;">Rs. ${item.selling_price.toLocaleString('en-IN')}</div>
+                  <a href="/index.html" style="font-size:11px; background:#0f172a; color:#fff; padding:3px 8px; border-radius:4px; text-decoration:none;">Reserve & Visit</a>
+                </div>
+              </div>
+            `).join('');
+          } else {
+            inventoryHtml = '<p style="color:#64748b; font-size:13px; padding:10px 0;">No phones currently listed. Check back shortly!</p>';
+          }
+
+          body.innerHTML = `
+            <div style="margin-bottom:1.25rem;">
+              <p style="font-size:13px; color:#475569;"><i class="fa-solid fa-location-dot" style="color:#d6336c;"></i> ${escapeHtml(s.address_line || s.address)}</p>
+              ${s.landmark ? `<p style="font-size:12px; color:#64748b; margin-top:3px;"><i class="fa-solid fa-signs-post"></i> Landmark: ${escapeHtml(s.landmark)}</p>` : ''}
+              <div style="display:flex; gap:8px; margin-top:10px;">
+                <a href="${s.google_maps_url}" target="_blank" class="btn-action btn-directions"><i class="fa-solid fa-diamond-turn-right"></i> Open in Google Maps</a>
+                <a href="https://wa.me/91${cleanPhone(s.whatsapp_number)}" target="_blank" class="btn-action btn-whatsapp"><i class="fa-brands fa-whatsapp"></i> Chat on WhatsApp</a>
+              </div>
+            </div>
+
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin-bottom:1.25rem;">
+              <h5 style="font-size:13px; font-weight:700; color:#0f172a; margin-bottom:4px;"><i class="fa-regular fa-clock"></i> Weekly Store Hours</h5>
+              ${hoursHtml}
+            </div>
+
+            <div>
+              <h5 style="font-size:13px; font-weight:700; color:#0f172a; margin-bottom:8px;"><i class="fa-solid fa-mobile-screen"></i> Certified Phones in Stock (${s.inventory_count || 0})</h5>
+              ${inventoryHtml}
+            </div>
+          `;
+        }
+      } catch (e) {
+        body.innerHTML = '<p style="color:#ef4444;">Failed to load store data.</p>';
+      }
+    }
+
+    function closeStoreModal() {
+      document.getElementById('store-modal').classList.remove('active');
+    }
+
+    function openPartnerModal() {
+      document.getElementById('partner-modal').classList.add('active');
+    }
+
+    function closePartnerModal() {
+      document.getElementById('partner-modal').classList.remove('active');
+    }
+
+    async function submitPartnerLead(e) {
+      e.preventDefault();
+      const alertBox = document.getElementById('partner-alert');
+      alertBox.style.display = 'none';
+
+      const payload = {
+        store_name: document.getElementById('partner-store-name').value,
+        owner_name: document.getElementById('partner-owner-name').value,
+        phone: document.getElementById('partner-phone').value,
+        address: document.getElementById('partner-address').value
+      };
+
+      try {
+        const res = await fetch('/api/stores/lead', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          alertBox.style.display = 'block';
+          alertBox.style.background = '#ecfdf5';
+          alertBox.style.color = '#065f46';
+          alertBox.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${data.message}`;
+          document.getElementById('partner-form').reset();
+          setTimeout(() => { closePartnerModal(); }, 2500);
+        } else {
+          alertBox.style.display = 'block';
+          alertBox.style.background = '#fef2f2';
+          alertBox.style.color = '#991b1b';
+          alertBox.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> ${data.error || 'Submission failed.'}`;
+        }
+      } catch (err) {
+        alertBox.style.display = 'block';
+        alertBox.style.background = '#fef2f2';
+        alertBox.style.color = '#991b1b';
+        alertBox.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Server error. Please try again.';
+      }
+    }
+
+    function cleanPhone(phone) {
+      return (phone || '').replace(/\D/g, '');
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+  </script>
+</body>
+</html>

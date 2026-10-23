@@ -22,6 +22,7 @@ def get_catalog():
     brand_filter = request.args.get("brand", "").strip()
     grade_filter = request.args.get("grade", "").strip()
     storage_filter = request.args.get("storage", "").strip()
+    store_filter = request.args.get("store_id", type=int) or request.args.get("vendor_id", type=int)
     min_price = request.args.get("min_price", type=float)
     max_price = request.args.get("max_price", type=float)
     sort_by = request.args.get("sort", "newest").strip().lower()
@@ -30,12 +31,17 @@ def get_catalog():
 
     db = SessionLocal()
     try:
+        from routes_reservations import release_expired_reservations
+        release_expired_reservations(db)
+
         query = db.query(InventoryUnit).join(InventoryUnit.vendor).join(InventoryUnit.variant).join(PhoneVariant.model).join(PhoneModel.series).join(PhoneSeries.brand).filter(
             InventoryUnit.status == UnitStatus.in_stock.value,
             InventoryUnit.deleted_at.is_(None),
             Vendor.approval_status == VendorApprovalStatus.approved.value
         )
 
+        if store_filter:
+            query = query.filter(InventoryUnit.vendor_id == store_filter)
         if brand_filter:
             query = query.filter(Brand.brand_name.ilike(brand_filter))
         if grade_filter:

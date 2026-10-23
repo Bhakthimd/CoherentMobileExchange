@@ -13,7 +13,9 @@ from models import (
     User, UserRole, Vendor, VendorApprovalStatus,
     Brand, PhoneSeries, PhoneModel, PhoneVariant,
     InventoryUnit, ConditionGrade, UnitStatus,
-    UnitImage, Order, OrderItem, StockMovement, utc_now
+    UnitImage, Order, OrderItem, StockMovement,
+    SellRequest, SellRequestTimeline, SellRequestStatus, FulfilmentType,
+    Reservation, ReservationStatus, utc_now
 )
 from auth import login_required, role_required, approved_vendor_required
 
@@ -763,3 +765,540 @@ def update_order_item_status(order_item_id: int):
         }), 200
     finally:
         db.close()
+
+
+# ---------------------------------------------------------------------------
+# Vendor Sell Requests Inbox & Payout Flow
+# ---------------------------------------------------------------------------
+
+@vendor_bp.route("/api/vendor/sell-requests", methods=["GET"])
+@login_required
+@role_required(UserRole.vendor.value)
+def get_vendor_sell_requests():
+    """
+    Returns sell requests assigned to this store, plus available unassigned
+    home pickups in Mysuru that this store can claim.
+    """
+    vendor_id = g.vendor.vendor_id
+    tab = request.args.get("tab", "all").strip().lower()
+
+    db = SessionLocal()
+    try:
+        # Assigned to this store
+        assigned_query = db.query(SellRequest).filter(
+            SellRequest.store_id == vendor_id
+        ).order_by(SellRequest.created_at.desc())
+
+        # Unassigned home pickups in Mysuru
+        pool_query = db.query(SellRequest).filter(
+            SellRequest.store_id.is_(None),
+            SellRequest.fulfilment_type == FulfilmentType.home_pickup.value,
+            SellRequest.status == SellRequestStatus.submitted.value
+        ).order_by(SellRequest.created_at.desc())
+
+        assigned = [r.to_dict() for r in assigned_query.all()]
+        pool = [r.to_dict() for r in pool_query.all()]
+
+        if tab == "assigned":
+            requests_list = assigned
+        elif tab == "pool":
+            requests_list = pool
+        else:
+            requests_list = assigned + pool
+
+        return jsonify({
+            "success": True,
+            "assigned_count": len(assigned),
+            "pool_count": len(pool),
+            "requests": requests_list
+        }), 200
+    finally:
+        db.close()
+
+
+@vendor_bp.route("/api/vendor/sell-requests/<int:request_id>/claim", methods=["POST"])
+@login_required
+@approved_vendor_required
+def claim_sell_request(request_id: int):
+    """
+    Atomic claim of an unassigned home pickup request in Mysuru.
+    First store to claim receives the assignment.
+    """
+    vendor_id = g.vendor.vendor_id
+    db = SessionLocal()
+    try:
+        sr = db.query(SellRequest).filter(
+            SellRequest.request_id == request_id,
+            SellRequest.store_id.is_(None)
+        ).with_for_update().first()
+
+        if not sr:
+            return jsonify({
+                "success": False,
+                "error": "This pickup request is no longer available or has already been claimed by another store."
+            }), 409
+
+        store_name = g.vendor.store_name or g.vendor.vendor_name
+        sr.store_id = vendor_id
+        sr.status = SellRequestStatus.store_confirmed.value
+
+        tl = SellRequestTimeline(
+            request_id=sr.request_id,
+            from_status=SellRequestStatus.submitted.value,
+            to_status=SellRequestStatus.store_confirmed.value,
+            actor_user_id=g.user.user_id,
+            actor_role="vendor",
+            notes=f"Pickup request claimed by {store_name} on K.T. Street."
+        )
+        db.add(tl)
+        db.commit()
+        db.refresh(sr)
+
+        return jsonify({
+            "success": True,
+            "message": f"Successfully claimed pickup request {sr.request_reference}!",
+            "sell_request": sr.to_dict()
+        }), 200
+    except Exception as e:
+        db.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        db.close()
+
+
+@vendor_bp.route("/api/vendor/sell-requests/<int:request_id>/status", methods=["PUT"])
+@login_required
+@approved_vendor_required
+def update_sell_request_status(request_id: int):
+    """
+    Update sell request status (e.g. store_confirmed, inspected, offer_revised, no_show).
+    """
+    vendor_id = g.vendor.vendor_id
+    data = request.get_json(silent=True) or {}
+    new_status = (data.get("status") or "").strip().lower()
+    final_offer = data.get("final_offer_price")
+    offer_notes = (data.get("final_offer_notes") or "").strip()
+
+    valid_statuses = (
+        SellRequestStatus.store_confirmed.value,
+        SellRequestStatus.inspected.value,
+        SellRequestStatus.offer_revised.value,
+        SellRequestStatus.accepted.value,
+        SellRequestStatus.rejected.value,
+        SellRequestStatus.no_show.value,
+        SellRequestStatus.cancelled.value,
+    )
+    if new_status not in valid_statuses:
+        return jsonify({"success": False, "error": f"Invalid status '{new_status}'."}), 400
+
+    db = SessionLocal()
+    try:
+        sr = db.query(SellRequest).filter(
+            SellRequest.request_id == request_id,
+            SellRequest.store_id == vendor_id
+        ).first()
+
+        if not sr:
+            return jsonify({"success": False, "error": "Sell request not found or not assigned to your store."}), 404
+
+        old_status = sr.status
+        sr.status = new_status
+        if final_offer is not None:
+            sr.final_offer_price = float(final_offer)
+        if offer_notes:
+            sr.final_offer_notes = offer_notes
+
+        notes = offer_notes or f"Status transitioned to '{new_status}' by store."
+        if final_offer is not None:
+            notes = f"Offer revised to Rs. {float(final_offer):,.2f}. {notes}"
+
+        tl = SellRequestTimeline(
+            request_id=sr.request_id,
+            from_status=old_status,
+            to_status=new_status,
+            actor_user_id=g.user.user_id,
+            actor_role="vendor",
+            notes=notes
+        )
+        db.add(tl)
+        db.commit()
+        db.refresh(sr)
+
+        return jsonify({
+            "success": True,
+            "message": f"Sell request status updated to '{new_status}'.",
+            "sell_request": sr.to_dict()
+        }), 200
+    finally:
+        db.close()
+
+
+@vendor_bp.route("/api/vendor/sell-requests/<int:request_id>/pay", methods=["POST"])
+@login_required
+@approved_vendor_required
+def pay_and_acquire_sell_request(request_id: int):
+    """
+    Store completes inspection payout to customer (cash or mock UPI)
+    AND AUTOMATICALLY adds the acquired phone into this store's inventory!
+    """
+    vendor_id = g.vendor.vendor_id
+    data = request.get_json(silent=True) or {}
+    payout_method = (data.get("payout_method") or "cash").strip().lower()
+    payout_ref = (data.get("payout_reference") or f"PAY/{payout_method.upper()}/{uuid.uuid4().hex[:8].upper()}").strip()
+    selling_price_override = data.get("resale_price")
+
+    if payout_method not in ("cash", "upi"):
+        payout_method = "cash"
+
+    db = SessionLocal()
+    try:
+        sr = db.query(SellRequest).filter(
+            SellRequest.request_id == request_id,
+            SellRequest.store_id == vendor_id
+        ).with_for_update().first()
+
+        if not sr:
+            return jsonify({"success": False, "error": "Sell request not found or not assigned to your store."}), 404
+
+        if sr.status == SellRequestStatus.paid.value:
+            return jsonify({"success": False, "error": "This sell request has already been marked as paid."}), 400
+
+        # Mark paid
+        old_status = sr.status
+        sr.status = SellRequestStatus.paid.value
+        sr.payout_method = payout_method
+        sr.payout_reference = payout_ref
+        sr.paid_at = utc_now()
+
+        purchase_price = float(sr.final_offer_price or sr.estimated_max_price or 10000.0)
+
+        # -------------------------------------------------------------------
+        # Automatic Inventory Unit Creation
+        # -------------------------------------------------------------------
+        # 1. Resolve or create Variant
+        brand = db.query(Brand).filter(func.lower(Brand.brand_name) == sr.brand.lower()).first()
+        if not brand:
+            brand = Brand(brand_name=sr.brand)
+            db.add(brand)
+            db.flush()
+
+        series = db.query(PhoneSeries).filter(PhoneSeries.brand_id == brand.brand_id).first()
+        if not series:
+            series = PhoneSeries(brand_id=brand.brand_id, series_name=f"{sr.brand} Series")
+            db.add(series)
+            db.flush()
+
+        model = db.query(PhoneModel).filter(
+            PhoneModel.series_id == series.series_id,
+            func.lower(PhoneModel.model_name) == sr.model.lower()
+        ).first()
+        if not model:
+            model = PhoneModel(
+                series_id=series.series_id,
+                model_name=sr.model,
+                image_url="/images/iphone15.jpg"
+            )
+            db.add(model)
+            db.flush()
+
+        storage_val = sr.storage_gb or 128
+        variant = db.query(PhoneVariant).filter(
+            PhoneVariant.model_id == model.model_id,
+            PhoneVariant.storage_gb == storage_val
+        ).first()
+        if not variant:
+            variant = PhoneVariant(
+                model_id=model.model_id,
+                storage_gb=storage_val,
+                ram_gb=8 if storage_val <= 128 else 12,
+                color="Assorted",
+                listed_price=round(purchase_price * 1.30, -1),
+                stock_quantity=1
+            )
+            db.add(variant)
+            db.flush()
+
+        # Calculate refurbished resale price: 25% markup over purchase or user override
+        resale_price = float(selling_price_override) if selling_price_override else round(purchase_price * 1.25, -1)
+        mrp = round(resale_price * 1.20, -1)
+
+        # Map condition answers to condition grade
+        cond_answers = sr.condition_answers or {}
+        screen_cond = cond_answers.get("screen", "flawless")
+        body_cond = cond_answers.get("body", "flawless")
+        grade = ConditionGrade.good.value
+        if screen_cond == "flawless" and body_cond == "flawless":
+            grade = ConditionGrade.like_new.value
+        elif screen_cond in ("cracked", "broken") or body_cond in ("dented", "heavy_wear"):
+            grade = ConditionGrade.fair.value
+
+        # Check if IMEI already exists in inventory (avoid uniqueness clash)
+        existing_unit = db.query(InventoryUnit).filter_by(imei=sr.imei).first()
+        if existing_unit:
+            unit = existing_unit
+            unit.status = UnitStatus.in_stock.value
+            unit.vendor_id = vendor_id
+            unit.selling_price = resale_price
+            unit.mrp = mrp
+            unit.condition_grade = grade
+            unit.deleted_at = None
+        else:
+            unit = InventoryUnit(
+                vendor_id=vendor_id,
+                variant_id=variant.variant_id,
+                imei=sr.imei,
+                condition_grade=grade,
+                battery_health=90,
+                selling_price=resale_price,
+                mrp=mrp,
+                warranty_months=6,
+                status=UnitStatus.in_stock.value,
+                notes=f"Refurbished device acquired from trade-in {sr.request_reference}. Inspected and certified."
+            )
+            db.add(unit)
+            db.flush()
+
+            # Attach model image
+            img = UnitImage(
+                unit_id=unit.unit_id,
+                image_url=model.image_url or "/images/iphone15.jpg",
+                sort_order=0
+            )
+            db.add(img)
+
+        # Audit stock movement
+        record_stock_movement(
+            db,
+            unit_id=unit.unit_id,
+            vendor_id=vendor_id,
+            action="added",
+            actor_user_id=g.user.user_id,
+            old_val=None,
+            new_val={
+                "imei": unit.imei,
+                "status": unit.status,
+                "selling_price": resale_price,
+                "source": f"Sell request {sr.request_reference}",
+                "payout_reference": payout_ref
+            }
+        )
+
+        sr.created_unit_id = unit.unit_id
+
+        tl = SellRequestTimeline(
+            request_id=sr.request_id,
+            from_status=old_status,
+            to_status=SellRequestStatus.paid.value,
+            actor_user_id=g.user.user_id,
+            actor_role="vendor",
+            notes=f"Payout of Rs. {purchase_price:,.2f} completed via {payout_method.upper()} ({payout_ref}). Device automatically added to store inventory (Unit #{unit.unit_id})."
+        )
+        db.add(tl)
+        db.commit()
+        db.refresh(sr)
+        db.refresh(unit)
+
+        return jsonify({
+            "success": True,
+            "message": f"Payment of Rs. {purchase_price:,.2f} confirmed! Phone is now in your store inventory as Unit #{unit.unit_id}.",
+            "sell_request": sr.to_dict(),
+            "created_unit": unit.to_dict()
+        }), 200
+    except Exception as e:
+        db.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        db.close()
+
+
+# ---------------------------------------------------------------------------
+# Vendor Reservations Management
+# ---------------------------------------------------------------------------
+
+@vendor_bp.route("/api/vendor/reservations", methods=["GET"])
+@login_required
+@role_required(UserRole.vendor.value)
+def get_vendor_reservations():
+    """List 24-hour holds/reservations placed on this store's devices."""
+    from routes_reservations import release_expired_reservations
+    vendor_id = g.vendor.vendor_id
+
+    db = SessionLocal()
+    try:
+        release_expired_reservations(db)
+
+        reservations = db.query(Reservation).filter(
+            Reservation.store_id == vendor_id
+        ).order_by(Reservation.created_at.desc()).all()
+
+        return jsonify({
+            "success": True,
+            "reservations": [r.to_dict() for r in reservations]
+        }), 200
+    finally:
+        db.close()
+
+
+@vendor_bp.route("/api/vendor/reservations/<int:reservation_id>/collect", methods=["PUT"])
+@login_required
+@approved_vendor_required
+def mark_reservation_collected(reservation_id: int):
+    """Customer inspected and paid for the reserved phone in-store."""
+    vendor_id = g.vendor.vendor_id
+    db = SessionLocal()
+    try:
+        res = db.query(Reservation).filter(
+            Reservation.reservation_id == reservation_id,
+            Reservation.store_id == vendor_id
+        ).with_for_update().first()
+
+        if not res:
+            return jsonify({"success": False, "error": "Reservation not found."}), 404
+
+        if res.status != ReservationStatus.active.value:
+            return jsonify({"success": False, "error": f"Cannot complete reservation in '{res.status}' status."}), 400
+
+        res.status = ReservationStatus.collected.value
+        if res.unit:
+            unit = db.query(InventoryUnit).filter_by(unit_id=res.unit_id).with_for_update().first()
+            if unit:
+                unit.status = UnitStatus.sold.value
+            record_stock_movement(
+                db,
+                unit_id=res.unit_id,
+                vendor_id=vendor_id,
+                action="sold",
+                actor_user_id=g.user.user_id,
+                old_val={"status": UnitStatus.reserved.value},
+                new_val={"status": UnitStatus.sold.value, "reservation": res.reservation_reference}
+            )
+
+        db.commit()
+        db.refresh(res)
+
+        return jsonify({
+            "success": True,
+            "message": "Device marked as collected and sold in-store!",
+            "reservation": res.to_dict()
+        }), 200
+    except Exception as e:
+        db.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        db.close()
+
+
+@vendor_bp.route("/api/vendor/reservations/<int:reservation_id>/cancel", methods=["PUT"])
+@login_required
+@approved_vendor_required
+def vendor_cancel_reservation(reservation_id: int):
+    """Store cancels hold if customer no-shows or declines."""
+    vendor_id = g.vendor.vendor_id
+    db = SessionLocal()
+    try:
+        res = db.query(Reservation).filter(
+            Reservation.reservation_id == reservation_id,
+            Reservation.store_id == vendor_id
+        ).with_for_update().first()
+
+        if not res:
+            return jsonify({"success": False, "error": "Reservation not found."}), 404
+
+        res.status = ReservationStatus.cancelled.value
+        if res.unit:
+            unit = db.query(InventoryUnit).filter_by(unit_id=res.unit_id).with_for_update().first()
+            if unit and unit.status == UnitStatus.reserved.value:
+                unit.status = UnitStatus.in_stock.value
+            record_stock_movement(
+                db,
+                unit_id=res.unit_id,
+                vendor_id=vendor_id,
+                action="unreserved",
+                actor_user_id=g.user.user_id,
+                old_val={"status": UnitStatus.reserved.value},
+                new_val={"status": UnitStatus.in_stock.value, "reason": "Store cancelled hold."}
+            )
+
+        db.commit()
+        db.refresh(res)
+
+        return jsonify({
+            "success": True,
+            "message": "Reservation hold cancelled. Device is back in stock.",
+            "reservation": res.to_dict()
+        }), 200
+    finally:
+        db.close()
+
+
+# ---------------------------------------------------------------------------
+# Store Profile Management
+# ---------------------------------------------------------------------------
+
+@vendor_bp.route("/api/vendor/store-profile", methods=["GET"])
+@login_required
+@role_required(UserRole.vendor.value)
+def get_store_profile():
+    """Retrieve full store profile details."""
+    return jsonify({
+        "success": True,
+        "store": g.vendor.to_dict()
+    }), 200
+
+
+@vendor_bp.route("/api/vendor/store-profile", methods=["PUT"])
+@login_required
+@approved_vendor_required
+def update_store_profile():
+    """Update store details, hours, services, and location pins."""
+    vendor_id = g.vendor.vendor_id
+    data = request.get_json(silent=True) or {}
+
+    db = SessionLocal()
+    try:
+        vendor = db.query(Vendor).filter_by(vendor_id=vendor_id).first()
+        if not vendor:
+            return jsonify({"success": False, "error": "Vendor not found."}), 404
+
+        if "store_name" in data:
+            vendor.store_name = data["store_name"].strip()
+            vendor.vendor_name = data["store_name"].strip()
+        if "address_line" in data:
+            vendor.address_line = data["address_line"].strip()
+            vendor.address = data["address_line"].strip()
+        if "landmark" in data:
+            vendor.landmark = data["landmark"].strip()
+        if "contact_phone" in data:
+            vendor.contact_phone = data["contact_phone"].strip()
+        if "whatsapp_number" in data:
+            vendor.whatsapp_number = data["whatsapp_number"].strip()
+        if "latitude" in data:
+            vendor.latitude = float(data["latitude"])
+        if "longitude" in data:
+            vendor.longitude = float(data["longitude"])
+        if "opening_hours" in data and isinstance(data["opening_hours"], dict):
+            vendor.opening_hours = data["opening_hours"]
+        if "accepts_walk_in" in data:
+            vendor.accepts_walk_in = bool(data["accepts_walk_in"])
+        if "offers_home_pickup" in data:
+            vendor.offers_home_pickup = bool(data["offers_home_pickup"])
+        if "offers_doorstep_delivery" in data:
+            vendor.offers_doorstep_delivery = bool(data["offers_doorstep_delivery"])
+        if "buyback_enabled" in data:
+            vendor.buyback_enabled = bool(data["buyback_enabled"])
+        if "store_photos" in data and isinstance(data["store_photos"], list):
+            vendor.store_photos = data["store_photos"]
+        if "google_maps_url" in data:
+            vendor.google_maps_url = data["google_maps_url"].strip()
+
+        db.commit()
+        db.refresh(vendor)
+
+        return jsonify({
+            "success": True,
+            "message": "Store profile updated successfully.",
+            "store": vendor.to_dict()
+        }), 200
+    finally:
+        db.close()
+

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Customer Reservations (24h Holds) | CoherentMobiles Partner Portal</title>
+  <link rel="stylesheet" href="vendor.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .res-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+    .res-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #f1f5f9;
+      padding-bottom: 0.65rem;
+    }
+    .res-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1.25rem;
+      font-size: 0.85rem;
+    }
+    @media (max-width: 800px) {
+      .res-grid { grid-template-columns: 1fr; }
+    }
+    .countdown-box {
+      background: #fdf2f6;
+      border: 1px solid #fbcfe8;
+      color: #b02154;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .status-active { background: #eff6ff; color: #1d4ed8; }
+    .status-collected { background: #ecfdf5; color: #047857; }
+    .status-expired { background: #fee2e2; color: #b91c1c; }
+    .status-cancelled { background: #f1f5f9; color: #64748b; }
+  </style>
+</head>
+<body>
+  <div class="vendor-layout">
+    <aside class="vendor-sidebar" id="vendorSidebar"></aside>
+
+    <main class="vendor-main">
+      <header class="vendor-header" id="vendorHeader"></header>
+
+      <div class="vendor-content">
+        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:1.25rem; margin-bottom:1.5rem; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <h3 style="font-size:1.1rem; font-weight:700; margin-bottom:0.25rem;">24-Hour "Reserve & Visit" Customer Holds</h3>
+            <p style="font-size:0.85rem; color:#64748b;">
+              Customers reserve a phone to physically inspect in your K.T. Street shop. Devices are locked for 24 hours then automatically released if not collected.
+            </p>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="loadReservations()">
+            <i class="fa-solid fa-rotate-right"></i> Refresh
+          </button>
+        </div>
+
+        <div id="reservationsList">
+          <div style="text-align:center; padding:3rem; color:#64748b;">
+            <i class="fa-solid fa-circle-notch fa-spin fa-2x"></i>
+            <p style="margin-top:0.5rem;">Loading reservations...</p>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="vendor.js"></script>
+  <script>
+    let reservations = [];
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      await VendorApp.init("reservations", "Device Reservations (Holds)", "Manage 24-hour holds placed by local Mysuru customers");
+      loadReservations();
+    });
+
+    async function loadReservations() {
+      try {
+        const res = await fetch("/api/vendor/reservations");
+        const data = await res.json();
+        if (data.success) {
+          reservations = data.reservations;
+          renderReservations();
+        }
+      } catch (e) {
+        document.getElementById('reservationsList').innerHTML = '<p style="color:#ef4444;">Error loading reservations.</p>';
+      }
+    }
+
+    function renderReservations() {
+      const container = document.getElementById('reservationsList');
+      if (reservations.length === 0) {
+        container.innerHTML = `
+          <div style="text-align:center; padding:3rem; background:#fff; border-radius:10px; border:1px solid #e2e8f0; color:#64748b;">
+            <i class="fa-solid fa-clock fa-2x" style="margin-bottom:0.5rem; color:#94a3b8;"></i>
+            <p>No device reservations at this time.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = reservations.map(r => {
+        const isActive = r.status === 'active' && !r.is_expired;
+        const statusClass = `status-${r.status}`;
+        const cleanPhone = (r.customer_phone || '').replace(/\D/g, '');
+        const unit = r.unit || {};
+
+        return `
+          <div class="res-card">
+            <div class="res-header">
+              <div style="display:flex; align-items:center; gap:0.75rem;">
+                <span style="font-weight:700; color:#0f172a; font-size:1.05rem;">${r.reservation_reference}</span>
+                <span class="status-badge ${statusClass}">● ${r.status}</span>
+              </div>
+              <div>
+                ${isActive ? `
+                  <span class="countdown-box"><i class="fa-solid fa-stopwatch"></i> Expires: ${formatExpiry(r.expires_at)}</span>
+                ` : `
+                  <span style="color:#64748b; font-size:0.8rem;">Hold placed on ${VendorApp.formatDate(r.created_at)}</span>
+                `}
+              </div>
+            </div>
+
+            <div class="res-grid">
+              <div>
+                <span style="color:#64748b; font-size:0.75rem; text-transform:uppercase; font-weight:700;">Customer Information</span>
+                <div style="font-weight:600; margin-top:3px;">${escapeHtml(r.customer_name)}</div>
+                <div style="color:#475569;">📞 ${escapeHtml(r.customer_phone)}</div>
+                <div style="margin-top:6px;">
+                  <a href="https://wa.me/91${cleanPhone}?text=Hello%20${encodeURIComponent(r.customer_name)},%20your%20reserved%20phone%20is%20ready%20for%20inspection%20at%20our%20K.T.%20Street%20store!" target="_blank" style="font-size:11px; background:#25d366; color:#fff; padding:3px 8px; border-radius:4px; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
+                    <i class="fa-brands fa-whatsapp"></i> WhatsApp Customer
+                  </a>
+                </div>
+              </div>
+
+              <div>
+                <span style="color:#64748b; font-size:0.75rem; text-transform:uppercase; font-weight:700;">Reserved Device</span>
+                <div style="font-weight:600; margin-top:3px;">${escapeHtml(unit.device_name || 'Mobile Device')}</div>
+                <div style="font-family:monospace; color:#334155; font-size:0.8rem;">IMEI: ${unit.imei || '-'}</div>
+                <div style="color:#64748b; font-size:0.8rem;">Grade: ${unit.condition_grade || 'Good'} &bull; Battery: ${unit.battery_health || 90}%</div>
+              </div>
+
+              <div>
+                <span style="color:#64748b; font-size:0.75rem; text-transform:uppercase; font-weight:700;">Price & Actions</span>
+                <div style="font-weight:700; color:#d6336c; font-size:1.1rem; margin-top:3px;">₹${(unit.selling_price || 0).toLocaleString('en-IN')}</div>
+                ${isActive ? `
+                  <div style="display:flex; gap:6px; margin-top:8px;">
+                    <button class="btn btn-sm" style="background:#10b981; color:#fff;" onclick="markCollected(${r.reservation_id})">
+                      <i class="fa-solid fa-check"></i> Customer Paid & Collected
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="cancelHold(${r.reservation_id})">
+                      Release Hold
+                    </button>
+                  </div>
+                ` : `
+                  <div style="color:#64748b; font-size:0.8rem; margin-top:6px;">No actions required.</div>
+                `}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function markCollected(resId) {
+      if (!confirm("Confirm customer inspected, paid, and collected this device? This will mark the phone as SOLD.")) return;
+      try {
+        const res = await fetch(`/api/vendor/reservations/${resId}/collect`, { method: "PUT" });
+        const data = await res.json();
+        if (data.success) {
+          VendorApp.showToast("Device marked as collected and sold!");
+          loadReservations();
+        } else {
+          VendorApp.showToast(data.error || "Update failed", false);
+        }
+      } catch (e) {
+        VendorApp.showToast("Server error", false);
+      }
+    }
+
+    async function cancelHold(resId) {
+      if (!confirm("Release this hold? The device will immediately return to public in-stock status.")) return;
+      try {
+        const res = await fetch(`/api/vendor/reservations/${resId}/cancel`, { method: "PUT" });
+        const data = await res.json();
+        if (data.success) {
+          VendorApp.showToast("Hold released. Device back in stock!");
+          loadReservations();
+        } else {
+          VendorApp.showToast(data.error || "Cancellation failed", false);
+        }
+      } catch (e) {
+        VendorApp.showToast("Server error", false);
+      }
+    }
+
+    function formatExpiry(expiryIso) {
+      if (!expiryIso) return "24h";
+      const exp = new Date(expiryIso);
+      const now = new Date();
+      const diffMs = exp - now;
+      if (diffMs <= 0) return "Expired";
+      const hours = Math.floor(diffMs / (1000 * 60 * 60));
+      const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      return `${hours}h ${mins}m left`;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+  </script>
+</body>
+</html>

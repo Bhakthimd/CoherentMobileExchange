@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Allow: /stores.html
+Allow: /index.html
+
+Sitemap: http://localhost:5000/sitemap.xml

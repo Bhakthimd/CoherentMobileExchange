@@ -32,6 +32,9 @@ from routes_vendor import vendor_bp
 from routes_catalog import catalog_bp
 from routes_orders import orders_bp
 from routes_admin import admin_bp
+from routes_stores import stores_bp
+from routes_sell import sell_bp
+from routes_reservations import reservations_bp
 from seed import seed_database
 
 # ---------------------------------------------------------------------------
@@ -63,6 +66,9 @@ app.register_blueprint(vendor_bp)
 app.register_blueprint(catalog_bp)
 app.register_blueprint(orders_bp)
 app.register_blueprint(admin_bp)
+app.register_blueprint(stores_bp)
+app.register_blueprint(sell_bp)
+app.register_blueprint(reservations_bp)
 
 # Global constants for test and backward compatibility
 VENDOR_DEFAULT_PASSWORD = os.environ.get("VENDOR_DEFAULT_PASSWORD", "Vendor@123")
@@ -133,6 +139,23 @@ def csrf_protection():
 def serve_storefront():
     """Main customer SPA storefront."""
     return send_from_directory(".", "index.html")
+
+
+@app.route("/stores")
+@app.route("/stores.html")
+def serve_stores_page():
+    """Store locator map & directory for K.T. Street, Mysuru."""
+    return send_from_directory(".", "stores.html")
+
+
+@app.route("/robots.txt")
+def serve_robots():
+    return send_from_directory(".", "robots.txt")
+
+
+@app.route("/sitemap.xml")
+def serve_sitemap():
+    return send_from_directory(".", "sitemap.xml", mimetype="application/xml")
 
 
 @app.route("/vendor")

@@ -67,3 +67,125 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.75; }
 }
+
+/* Mysuru K.T. Street Store & Reservation Enhancements */
+.cm-modal {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(4px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 16px;
+}
+.cm-modal.active { display: flex; }
+
+.cm-modal-card {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 650px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+}
+
+.cm-modal-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.cm-modal-header h3 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+.cm-modal-body {
+  padding: 24px;
+}
+
+.btn-reserve {
+  background: #0f172a;
+  color: #ffffff;
+  border: 1px solid #0f172a;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-reserve:hover {
+  background: #1e293b;
+  transform: translateY(-1px);
+}
+
+.reserve-success-box {
+  background: #fdf2f6;
+  border: 1px solid #fbcfe8;
+  border-radius: 12px;
+  padding: 18px;
+  text-align: center;
+  margin-bottom: 16px;
+}
+.reserve-code {
+  font-family: monospace;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #b02154;
+  letter-spacing: 2px;
+  margin: 6px 0;
+}
+
+.store-meta-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.sell-step {
+  display: none;
+}
+.sell-step.active {
+  display: block;
+}
+
+.choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+.choice-btn {
+  background: #f8fafc;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 12px 10px;
+  text-align: center;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.15s;
+  color: #1e293b;
+}
+.choice-btn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+.choice-btn.selected {
+  background: #fdf2f6;
+  border-color: #d6336c;
+  color: #b02154;
+}

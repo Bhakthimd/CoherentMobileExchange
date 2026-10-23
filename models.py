@@ -1,7 +1,7 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import enum
 from sqlalchemy import (
-    Column, Integer, String, Text, Numeric, Boolean, Date, DateTime,
+    Column, Integer, String, Text, Numeric, Float, Boolean, Date, DateTime,
     ForeignKey, UniqueConstraint, CheckConstraint, Index
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -39,6 +39,30 @@ class UnitStatus(str, enum.Enum):
     reserved = "reserved"
     sold = "sold"
     hidden = "hidden"
+
+
+class SellRequestStatus(str, enum.Enum):
+    submitted = "submitted"
+    store_confirmed = "store_confirmed"
+    inspected = "inspected"
+    offer_revised = "offer_revised"
+    accepted = "accepted"
+    rejected = "rejected"
+    paid = "paid"
+    cancelled = "cancelled"
+    no_show = "no_show"
+
+
+class FulfilmentType(str, enum.Enum):
+    store_visit = "store_visit"
+    home_pickup = "home_pickup"
+
+
+class ReservationStatus(str, enum.Enum):
+    active = "active"
+    collected = "collected"
+    expired = "expired"
+    cancelled = "cancelled"
 
 
 # ---------------------------------------------------------------------------
@@ -103,20 +127,75 @@ class Vendor(Base):
     )
     created_at = Column(DateTime(timezone=True), default=utc_now)
 
+    # Mysuru / K.T. Street local store model additions
+    store_name = Column(String(150), nullable=True)
+    address_line = Column(String(255), nullable=True)
+    landmark = Column(String(150), nullable=True)
+    area = Column(String(100), default="K.T. Street", nullable=False, server_default="K.T. Street")
+    city = Column(String(100), default="Mysuru", nullable=False, server_default="Mysuru")
+    pincode = Column(String(10), default="570001", nullable=False, server_default="570001")
+    latitude = Column(Float, default=12.3052)
+    longitude = Column(Float, default=76.6551)
+    whatsapp_number = Column(String(30), nullable=True)
+    opening_hours = Column(JSON, nullable=True)
+    accepts_walk_in = Column(Boolean, default=True, server_default="true")
+    offers_home_pickup = Column(Boolean, default=True, server_default="true")
+    offers_doorstep_delivery = Column(Boolean, default=True, server_default="true")
+    buyback_enabled = Column(Boolean, default=True, server_default="true")
+    store_photos = Column(JSON, nullable=True)
+    google_maps_url = Column(String(255), nullable=True)
+
     # Relationships
     user = relationship("User", back_populates="vendor")
     variants = relationship("PhoneVariant", back_populates="vendor")
     inventory_units = relationship("InventoryUnit", back_populates="vendor")
     order_items = relationship("OrderItem", back_populates="vendor")
     stock_movements = relationship("StockMovement", back_populates="vendor")
+    sell_requests = relationship("SellRequest", back_populates="store", foreign_keys="SellRequest.store_id")
+    reservations = relationship("Reservation", back_populates="store", foreign_keys="Reservation.store_id")
+
+    def is_open_now(self, now_dt=None):
+        if not self.opening_hours or not isinstance(self.opening_hours, dict):
+            return True  # default open if hours not configured
+
+        # IST is UTC+5:30
+        ist_tz = timezone(timedelta(hours=5, minutes=30))
+        current_dt = now_dt or datetime.now(ist_tz)
+        weekday_names = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+        current_day = weekday_names[current_dt.weekday()]
+
+        day_info = self.opening_hours.get(current_day)
+        if not day_info:
+            return True
+
+        if day_info.get("is_closed") or day_info.get("closed"):
+            return False
+
+        open_str = day_info.get("open", "10:00")
+        close_str = day_info.get("close", "21:00")
+        try:
+            open_h, open_m = map(int, open_str.split(":"))
+            close_h, close_m = map(int, close_str.split(":"))
+            current_time_minutes = current_dt.hour * 60 + current_dt.minute
+            open_time_minutes = open_h * 60 + open_m
+            close_time_minutes = close_h * 60 + close_m
+            return open_time_minutes <= current_time_minutes <= close_time_minutes
+        except Exception:
+            return True
 
     def to_dict(self):
+        display_name = self.store_name or self.vendor_name
+        lat = float(self.latitude) if self.latitude is not None else 12.3052
+        lng = float(self.longitude) if self.longitude is not None else 76.6551
+        maps_url = self.google_maps_url or f"https://www.google.com/maps/dir/?api=1&destination={lat},{lng}"
+
         return {
             "vendor_id": self.vendor_id,
             "id": self.vendor_id,  # backward compatibility
             "user_id": self.user_id,
             "vendor_name": self.vendor_name,
-            "name": self.vendor_name,  # backward compatibility
+            "name": display_name,  # backward compatibility
+            "store_name": display_name,
             "vendor_code": self.vendor_code,
             "code": self.vendor_code,  # backward compatibility
             "category": self.category,
@@ -126,6 +205,22 @@ class Vendor(Base):
             "phone": self.contact_phone,  # backward compatibility
             "location": self.location,
             "address": self.address,
+            "address_line": self.address_line or self.address,
+            "landmark": self.landmark,
+            "area": self.area or "K.T. Street",
+            "city": self.city or "Mysuru",
+            "pincode": self.pincode or "570001",
+            "latitude": lat,
+            "longitude": lng,
+            "whatsapp_number": self.whatsapp_number or self.contact_phone,
+            "opening_hours": self.opening_hours,
+            "is_open": self.is_open_now(),
+            "accepts_walk_in": bool(self.accepts_walk_in),
+            "offers_home_pickup": bool(self.offers_home_pickup),
+            "offers_doorstep_delivery": bool(self.offers_doorstep_delivery),
+            "buyback_enabled": bool(self.buyback_enabled),
+            "store_photos": self.store_photos or [],
+            "google_maps_url": maps_url,
             "gst_number": self.gst_number,
             "logo_url": self.logo_url,
             "rating": float(self.rating) if self.rating is not None else 4.8,
@@ -283,11 +378,22 @@ class InventoryUnit(Base):
         image_urls = [img.image_url for img in self.images] if self.images else []
         primary_image = image_urls[0] if image_urls else (self.variant.model.image_url if self.variant and self.variant.model else None)
 
+        store_name = (self.vendor.store_name or self.vendor.vendor_name) if self.vendor else None
+        store_address = (self.vendor.address_line or self.vendor.address) if self.vendor else None
+
         return {
             "unit_id": self.unit_id,
             "id": self.unit_id,
             "vendor_id": self.vendor_id,
             "vendor_name": self.vendor.vendor_name if self.vendor else None,
+            "store_id": self.vendor_id,
+            "store_name": store_name,
+            "store_address": store_address,
+            "store_landmark": self.vendor.landmark if self.vendor else None,
+            "store_phone": self.vendor.contact_phone if self.vendor else None,
+            "store_whatsapp": self.vendor.whatsapp_number if self.vendor else None,
+            "store_is_open": self.vendor.is_open_now() if self.vendor else True,
+            "store_directions_url": self.vendor.google_maps_url if self.vendor else None,
             "variant_id": self.variant_id,
             "brand": brand_name,
             "model": model_name,
@@ -625,3 +731,229 @@ class Appointment(Base):
     reference_number = Column(String(50), unique=True, nullable=True)
     status = Column(String(50), default="Scheduled")
     created_at = Column(DateTime(timezone=True), default=utc_now)
+
+
+# ---------------------------------------------------------------------------
+# Mysuru / K.T. Street Local Marketplace Extensions
+# ---------------------------------------------------------------------------
+
+class ServiceablePincode(Base):
+    __tablename__ = "serviceable_pincodes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    pincode = Column(String(10), unique=True, nullable=False, index=True)
+    area_name = Column(String(150), nullable=False)
+    city = Column(String(100), default="Mysuru", nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "pincode": self.pincode,
+            "area_name": self.area_name,
+            "city": self.city,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class PriceMatrix(Base):
+    __tablename__ = "price_matrix"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    brand = Column(String(100), nullable=False, index=True)
+    model = Column(String(100), nullable=False, index=True)
+    storage_gb = Column(Integer, nullable=False)
+    base_price = Column(Numeric(10, 2), nullable=False)
+    screen_scratch_pct = Column(Numeric(5, 2), default=10.0)
+    screen_cracked_pct = Column(Numeric(5, 2), default=35.0)
+    body_dent_pct = Column(Numeric(5, 2), default=12.0)
+    battery_low_pct = Column(Numeric(5, 2), default=15.0)
+    camera_fault_pct = Column(Numeric(5, 2), default=20.0)
+    speaker_fault_pct = Column(Numeric(5, 2), default=10.0)
+    accessories_deduction = Column(Numeric(10, 2), default=1000.0)
+    is_active = Column(Boolean, default=True, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+    __table_args__ = (
+        UniqueConstraint("brand", "model", "storage_gb", name="uq_price_matrix_variant"),
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "brand": self.brand,
+            "model": self.model,
+            "storage_gb": self.storage_gb,
+            "base_price": float(self.base_price) if self.base_price is not None else 0.0,
+            "screen_scratch_pct": float(self.screen_scratch_pct or 10.0),
+            "screen_cracked_pct": float(self.screen_cracked_pct or 35.0),
+            "body_dent_pct": float(self.body_dent_pct or 12.0),
+            "battery_low_pct": float(self.battery_low_pct or 15.0),
+            "camera_fault_pct": float(self.camera_fault_pct or 20.0),
+            "speaker_fault_pct": float(self.speaker_fault_pct or 10.0),
+            "accessories_deduction": float(self.accessories_deduction or 1000.0),
+            "is_active": self.is_active,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class SellRequest(Base):
+    __tablename__ = "sell_requests"
+
+    request_id = Column(Integer, primary_key=True, autoincrement=True)
+    request_reference = Column(String(50), unique=True, nullable=False, index=True)
+    customer_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True, index=True)
+    customer_name = Column(String(100), nullable=False)
+    customer_phone = Column(String(20), nullable=False, index=True)
+    customer_email = Column(String(150), nullable=True)
+    customer_address = Column(Text, nullable=True)
+    pincode = Column(String(10), nullable=True, index=True)
+
+    store_id = Column(Integer, ForeignKey("vendors.vendor_id", ondelete="SET NULL"), nullable=True, index=True)
+
+    brand = Column(String(100), nullable=False)
+    model = Column(String(100), nullable=False)
+    storage_gb = Column(Integer, nullable=True)
+    imei = Column(String(20), nullable=False, index=True)
+    condition_answers = Column(JSON, nullable=True)
+
+    estimated_min_price = Column(Numeric(10, 2), nullable=False)
+    estimated_max_price = Column(Numeric(10, 2), nullable=False)
+    final_offer_price = Column(Numeric(10, 2), nullable=True)
+    final_offer_notes = Column(Text, nullable=True)
+
+    fulfilment_type = Column(String(30), default=FulfilmentType.store_visit.value, nullable=False)
+    slot_date = Column(Date, nullable=True)
+    slot_time = Column(String(30), nullable=True)
+
+    status = Column(String(30), default=SellRequestStatus.submitted.value, nullable=False, index=True)
+    payout_method = Column(String(30), nullable=True)  # cash, upi
+    payout_reference = Column(String(100), nullable=True)
+    paid_at = Column(DateTime(timezone=True), nullable=True)
+
+    created_unit_id = Column(Integer, ForeignKey("inventory_units.unit_id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+    customer = relationship("User", foreign_keys=[customer_id])
+    store = relationship("Vendor", back_populates="sell_requests", foreign_keys=[store_id])
+    created_unit = relationship("InventoryUnit", foreign_keys=[created_unit_id])
+    timeline = relationship("SellRequestTimeline", back_populates="sell_request", cascade="all, delete-orphan", order_by="SellRequestTimeline.created_at.asc()")
+
+    def to_dict(self):
+        return {
+            "request_id": self.request_id,
+            "request_reference": self.request_reference,
+            "customer_id": self.customer_id,
+            "customer_name": self.customer_name,
+            "customer_phone": self.customer_phone,
+            "customer_email": self.customer_email,
+            "customer_address": self.customer_address,
+            "pincode": self.pincode,
+            "store_id": self.store_id,
+            "store_name": self.store.store_name if self.store else None,
+            "store_address": self.store.address_line or self.store.address if self.store else None,
+            "store_phone": self.store.contact_phone if self.store else None,
+            "brand": self.brand,
+            "model": self.model,
+            "storage_gb": self.storage_gb,
+            "storage": f"{self.storage_gb} GB" if self.storage_gb else None,
+            "imei": self.imei,
+            "condition_answers": self.condition_answers or {},
+            "estimated_min_price": float(self.estimated_min_price) if self.estimated_min_price is not None else 0.0,
+            "estimated_max_price": float(self.estimated_max_price) if self.estimated_max_price is not None else 0.0,
+            "final_offer_price": float(self.final_offer_price) if self.final_offer_price is not None else None,
+            "final_offer_notes": self.final_offer_notes,
+            "fulfilment_type": self.fulfilment_type,
+            "slot_date": self.slot_date.isoformat() if self.slot_date else None,
+            "slot_time": self.slot_time,
+            "status": self.status,
+            "payout_method": self.payout_method,
+            "payout_reference": self.payout_reference,
+            "paid_at": self.paid_at.isoformat() if self.paid_at else None,
+            "created_unit_id": self.created_unit_id,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "timeline": [t.to_dict() for t in self.timeline] if self.timeline else [],
+        }
+
+
+class SellRequestTimeline(Base):
+    __tablename__ = "sell_request_timelines"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    request_id = Column(Integer, ForeignKey("sell_requests.request_id", ondelete="CASCADE"), nullable=False, index=True)
+    from_status = Column(String(30), nullable=True)
+    to_status = Column(String(30), nullable=False)
+    actor_user_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
+    actor_role = Column(String(30), nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
+
+    sell_request = relationship("SellRequest", back_populates="timeline")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "request_id": self.request_id,
+            "from_status": self.from_status,
+            "to_status": self.to_status,
+            "actor_user_id": self.actor_user_id,
+            "actor_role": self.actor_role,
+            "notes": self.notes,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class Reservation(Base):
+    __tablename__ = "reservations"
+
+    reservation_id = Column(Integer, primary_key=True, autoincrement=True)
+    reservation_reference = Column(String(50), unique=True, nullable=False, index=True)
+    unit_id = Column(Integer, ForeignKey("inventory_units.unit_id", ondelete="CASCADE"), nullable=False, index=True)
+    customer_id = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True, index=True)
+    customer_name = Column(String(100), nullable=False)
+    customer_phone = Column(String(20), nullable=False)
+    customer_email = Column(String(150), nullable=True)
+    store_id = Column(Integer, ForeignKey("vendors.vendor_id", ondelete="CASCADE"), nullable=False, index=True)
+    reserved_at = Column(DateTime(timezone=True), default=utc_now)
+    expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
+    status = Column(String(30), default=ReservationStatus.active.value, nullable=False, index=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
+
+    unit = relationship("InventoryUnit")
+    customer = relationship("User")
+    store = relationship("Vendor", back_populates="reservations", foreign_keys=[store_id])
+
+    def is_expired(self):
+        if not self.expires_at:
+            return False
+        # Normalize timezone awareness
+        now = utc_now()
+        exp = self.expires_at if self.expires_at.tzinfo else self.expires_at.replace(tzinfo=timezone.utc)
+        return now > exp
+
+    def to_dict(self):
+        return {
+            "reservation_id": self.reservation_id,
+            "reservation_reference": self.reservation_reference,
+            "unit_id": self.unit_id,
+            "unit": self.unit.to_dict() if self.unit else None,
+            "customer_id": self.customer_id,
+            "customer_name": self.customer_name,
+            "customer_phone": self.customer_phone,
+            "customer_email": self.customer_email,
+            "store_id": self.store_id,
+            "store_name": self.store.store_name if self.store else None,
+            "store_address": self.store.address_line or self.store.address if self.store else None,
+            "store_phone": self.store.contact_phone if self.store else None,
+            "reserved_at": self.reserved_at.isoformat() if self.reserved_at else None,
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+            "status": self.status,
+            "is_expired": self.is_expired(),
+            "notes": self.notes,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }

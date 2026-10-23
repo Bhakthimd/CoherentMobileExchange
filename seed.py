@@ -8,6 +8,7 @@ Idempotent: safe to run multiple times.
 import json
 import os
 import random
+from datetime import datetime, timezone, timedelta, date
 from argon2 import PasswordHasher
 from database import SessionLocal
 import models
@@ -15,7 +16,10 @@ from models import (
     User, UserRole, Vendor, VendorApprovalStatus,
     Brand, PhoneSeries, PhoneModel, PhoneVariant,
     InventoryUnit, ConditionGrade, UnitStatus,
-    UnitImage, StockMovement
+    UnitImage, StockMovement, ServiceablePincode,
+    PriceMatrix, SellRequest, SellRequestTimeline,
+    Reservation, ReservationStatus, SellRequestStatus,
+    FulfilmentType, utc_now
 )
 
 ph = PasswordHasher()
@@ -87,23 +91,126 @@ def seed_database():
         raw_vendors = data.get("vendors", [])
         raw_mobiles = data.get("mobiles", [])
 
-        # 3. Seed Vendors & Vendor Users
-        vendor_map = {}  # code -> Vendor
-        for idx, vdata in enumerate(raw_vendors):
-            vcode = vdata.get("code")
-            vname = vdata.get("name")
-            vemail = vdata.get("email")
-            vphone = vdata.get("phone")
+        # 3. Seed 5 K.T. Street Stores (+1 Pending Vendor)
+        default_hours = {
+            "monday": {"open": "10:00", "close": "21:00", "is_closed": False},
+            "tuesday": {"open": "10:00", "close": "21:00", "is_closed": False},
+            "wednesday": {"open": "10:00", "close": "21:00", "is_closed": False},
+            "thursday": {"open": "10:00", "close": "21:00", "is_closed": False},
+            "friday": {"open": "10:00", "close": "21:00", "is_closed": False},
+            "saturday": {"open": "10:00", "close": "21:30", "is_closed": False},
+            "sunday": {"open": "11:00", "close": "19:00", "is_closed": False},
+        }
 
-            # 3 approved, 4th pending for testing approval flows
-            is_approved = idx < 3
+        sunday_closed_hours = dict(default_hours)
+        sunday_closed_hours["sunday"] = {"open": "00:00", "close": "00:00", "is_closed": True}
+
+        stores_metadata = [
+            {
+                "id": 1,
+                "code": "IST-IND",
+                "name": "Chamundi Mobile Galleria",
+                "email": "istore@coherent.test",
+                "phone": "+91 821 242 1001",
+                "whatsapp": "+91 98450 11001",
+                "address": "42 K.T. Street, Mandi Mohalla, Mysuru - 570001",
+                "landmark": "Near D. Banumaiah Circle",
+                "lat": 12.3052,
+                "lng": 76.6551,
+                "rating": 4.9,
+                "approved": True,
+                "hours": default_hours,
+            },
+            {
+                "id": 2,
+                "code": "APX-DST",
+                "name": "Cauvery Phone Junction",
+                "email": "apex@coherent.test",
+                "phone": "+91 821 242 1002",
+                "whatsapp": "+91 98450 11002",
+                "address": "78 K.T. Street, Mandi Mohalla, Mysuru - 570001",
+                "landmark": "Opp. Clock Tower Lane",
+                "lat": 12.3058,
+                "lng": 76.6548,
+                "rating": 4.8,
+                "approved": True,
+                "hours": default_hours,
+            },
+            {
+                "id": 3,
+                "code": "GRN-TEL",
+                "name": "Heritage Gadgets & Exchange",
+                "email": "green@coherent.test",
+                "phone": "+91 821 242 1003",
+                "whatsapp": "+91 98450 11003",
+                "address": "115 K.T. Street, Mandi Mohalla, Mysuru - 570001",
+                "landmark": "Cross Road 2",
+                "lat": 12.3065,
+                "lng": 76.6545,
+                "rating": 4.7,
+                "approved": True,
+                "hours": sunday_closed_hours,
+            },
+            {
+                "id": 4,
+                "code": "MMP-KTS",
+                "name": "Mysuru Mobile Point",
+                "email": "mysuru.point@coherent.test",
+                "phone": "+91 821 242 1004",
+                "whatsapp": "+91 98450 11004",
+                "address": "152 K.T. Street, Mandi Mohalla, Mysuru - 570001",
+                "landmark": "Near Central Market Gate",
+                "lat": 12.3071,
+                "lng": 76.6542,
+                "rating": 4.85,
+                "approved": True,
+                "hours": default_hours,
+            },
+            {
+                "id": 5,
+                "code": "KRS-KTS",
+                "name": "K.T. Street Refurb Studio",
+                "email": "refurb.studio@coherent.test",
+                "phone": "+91 821 242 1005",
+                "whatsapp": "+91 98450 11005",
+                "address": "204 K.T. Street, Mandi Mohalla, Mysuru - 570001",
+                "landmark": "North End Corner",
+                "lat": 12.3079,
+                "lng": 76.6539,
+                "rating": 4.95,
+                "approved": True,
+                "hours": default_hours,
+            },
+            {
+                "id": 6,
+                "code": "NX-HUB",
+                "name": "Nexus Hub K.T. Street",
+                "email": "nexus@coherent.test",
+                "phone": "+91 821 242 1006",
+                "whatsapp": "+91 98450 11006",
+                "address": "260 K.T. Street, Mandi Mohalla, Mysuru - 570001",
+                "landmark": "Near Irwin Road Junction",
+                "lat": 12.3085,
+                "lng": 76.6535,
+                "rating": 4.5,
+                "approved": False,
+                "hours": default_hours,
+            },
+        ]
+
+        vendor_map = {}  # code/id -> Vendor
+        for idx, sdata in enumerate(stores_metadata):
+            vcode = sdata["code"]
+            vname = sdata["name"]
+            vemail = sdata["email"]
+            vphone = sdata["phone"]
+            is_approved = sdata["approved"]
             approval_status = (
                 VendorApprovalStatus.approved.value
                 if is_approved
                 else VendorApprovalStatus.pending.value
             )
 
-            # Create or update user account for vendor
             vendor_user = session.query(User).filter_by(email=vemail).first()
             if not vendor_user:
                 vendor_user = User(
@@ -111,7 +218,7 @@ def seed_database():
                     email=vemail,
                     phone=vphone,
                     password_hash=ph.hash(VENDOR_DEFAULT_PASSWORD),
-                    address=vdata.get("location", "Mumbai, India"),
+                    address=sdata["address"],
                     role=UserRole.vendor.value,
                 )
                 session.add(vendor_user)
@@ -125,36 +232,73 @@ def seed_database():
                 ))
             else:
                 vendor_user.role = UserRole.vendor.value
+                vendor_user.name = vname
+                vendor_user.address = sdata["address"]
                 if not vendor_user.password_hash or not vendor_user.password_hash.startswith("$argon2"):
                     vendor_user.password_hash = ph.hash(VENDOR_DEFAULT_PASSWORD)
                 session.flush()
 
-            # Create or update Vendor record
             vendor = session.query(Vendor).filter_by(vendor_code=vcode).first()
             if not vendor:
                 vendor = Vendor(
                     user_id=vendor_user.user_id,
                     vendor_name=vname,
+                    store_name=vname,
                     vendor_code=vcode,
-                    category=vdata.get("category", "Authorized Retailer"),
+                    category="Certified Refurb Store",
                     contact_email=vemail,
                     contact_phone=vphone,
-                    location=vdata.get("location", "India"),
-                    address=vdata.get("location", "India"),
-                    gst_number=f"27AABCU{1000 + idx}D1Z5",
+                    location="K.T. Street, Mysuru",
+                    address=sdata["address"],
+                    address_line=sdata["address"],
+                    landmark=sdata["landmark"],
+                    area="K.T. Street",
+                    city="Mysuru",
+                    pincode="570001",
+                    latitude=sdata["lat"],
+                    longitude=sdata["lng"],
+                    whatsapp_number=sdata["whatsapp"],
+                    opening_hours=sdata["hours"],
+                    accepts_walk_in=True,
+                    offers_home_pickup=True,
+                    offers_doorstep_delivery=True,
+                    buyback_enabled=True,
+                    store_photos=[
+                        f"/images/stores/store_{idx + 1}_front.jpg",
+                        f"/images/stores/store_{idx + 1}_inside.jpg"
+                    ],
+                    google_maps_url=f"https://www.google.com/maps/dir/?api=1&destination={sdata['lat']},{sdata['lng']}",
+                    gst_number=f"29AABCU{1000 + idx}D1Z5",
                     logo_url=f"/images/vendors/{vcode.lower()}.png",
-                    rating=vdata.get("rating", 4.8),
-                    status="Active",
+                    rating=sdata["rating"],
+                    status="Active" if is_approved else "Pending Verification",
                     approval_status=approval_status,
                 )
                 session.add(vendor)
                 session.flush()
             else:
                 vendor.user_id = vendor_user.user_id
+                vendor.store_name = vname
+                vendor.vendor_name = vname
+                vendor.address = sdata["address"]
+                vendor.address_line = sdata["address"]
+                vendor.landmark = sdata["landmark"]
+                vendor.area = "K.T. Street"
+                vendor.city = "Mysuru"
+                vendor.pincode = "570001"
+                vendor.latitude = sdata["lat"]
+                vendor.longitude = sdata["lng"]
+                vendor.whatsapp_number = sdata["whatsapp"]
+                vendor.opening_hours = sdata["hours"]
+                vendor.accepts_walk_in = True
+                vendor.offers_home_pickup = True
+                vendor.offers_doorstep_delivery = True
+                vendor.buyback_enabled = True
+                vendor.google_maps_url = f"https://www.google.com/maps/dir/?api=1&destination={sdata['lat']},{sdata['lng']}"
                 vendor.approval_status = approval_status
                 session.flush()
 
-            vendor_map[vdata.get("id")] = vendor
+            vendor_map[sdata["id"]] = vendor
             vendor_map[vcode] = vendor
 
         # 4. Seed Brands, Series, Models, Variants from mobiles
@@ -293,6 +437,204 @@ def seed_database():
                     },
                 )
                 session.add(movement)
+
+        # 5. Seed Serviceable Mysuru Pincodes
+        mysuru_pincodes = [
+            ("570001", "K.T. Street, Mandi Mohalla, Mysuru City"),
+            ("570002", "Lashkar Mohalla, Doora"),
+            ("570004", "Vontikoppal, Yadavagiri"),
+            ("570005", "Jayalakshmipuram, Gokulam 1st Stage"),
+            ("570006", "Gokulam 2nd & 3rd Stage"),
+            ("570008", "Kuvempunagar, Jayanagar"),
+            ("570009", "Saraswathipuram, Tonachikoppal"),
+            ("570010", "Nazarbad, Ittigegud"),
+            ("570012", "Siddhartha Layout, Alanahalli"),
+            ("570017", "Hebbal 1st & 2nd Stage"),
+            ("570020", "Vijayanagar 1st, 2nd, 3rd Stage"),
+            ("570024", "Alanahalli, Chamundi Foothills"),
+        ]
+        for pin, area in mysuru_pincodes:
+            existing_pin = session.query(ServiceablePincode).filter_by(pincode=pin).first()
+            if not existing_pin:
+                session.add(ServiceablePincode(
+                    pincode=pin,
+                    area_name=area,
+                    city="Mysuru",
+                    is_active=True
+                ))
+            else:
+                existing_pin.area_name = area
+                existing_pin.is_active = True
+        session.flush()
+
+        # 6. Seed Price Matrix for Instant Valuations
+        matrix_data = [
+            ("Apple", "iPhone 15", 128, 46000),
+            ("Apple", "iPhone 15", 256, 53000),
+            ("Apple", "iPhone 14", 128, 36000),
+            ("Apple", "iPhone 14", 256, 41000),
+            ("Apple", "iPhone 13", 128, 28000),
+            ("Apple", "iPhone 12", 128, 21000),
+            ("Samsung", "Galaxy S23 Ultra", 256, 55000),
+            ("Samsung", "Galaxy S23", 128, 34000),
+            ("Samsung", "Galaxy S22", 128, 24000),
+            ("OnePlus", "12", 256, 38000),
+            ("OnePlus", "11", 128, 27000),
+            ("Google", "Pixel 8", 128, 32000),
+            ("Google", "Pixel 7", 128, 22000),
+            ("Xiaomi", "13 Pro", 256, 29000),
+        ]
+        for brand_m, model_m, storage_m, base_p in matrix_data:
+            existing_pm = session.query(PriceMatrix).filter_by(
+                brand=brand_m, model=model_m, storage_gb=storage_m
+            ).first()
+            if not existing_pm:
+                session.add(PriceMatrix(
+                    brand=brand_m,
+                    model=model_m,
+                    storage_gb=storage_m,
+                    base_price=base_p,
+                    screen_scratch_pct=10.0,
+                    screen_cracked_pct=35.0,
+                    body_dent_pct=12.0,
+                    battery_low_pct=15.0,
+                    camera_fault_pct=20.0,
+                    speaker_fault_pct=10.0,
+                    accessories_deduction=1000.0,
+                    is_active=True
+                ))
+            else:
+                existing_pm.base_price = base_p
+                existing_pm.is_active = True
+        session.flush()
+
+        # 7. Seed Sample Sell Request & Timeline
+        sample_store = vendor_map.get(1)
+        if sample_store:
+            existing_sr = session.query(SellRequest).filter_by(request_reference="SELL-MYS-001").first()
+            if not existing_sr:
+                sr_imei = make_valid_imei("35874299", 88812)
+                sr = SellRequest(
+                    request_reference="SELL-MYS-001",
+                    customer_name="Praveen Kumar",
+                    customer_phone="+919880123456",
+                    customer_email="praveen.mysuru@example.com",
+                    customer_address="14, Gokulam 3rd Stage, Mysuru",
+                    pincode="570006",
+                    store_id=sample_store.vendor_id,
+                    brand="Apple",
+                    model="iPhone 13",
+                    storage_gb=128,
+                    imei=sr_imei,
+                    condition_answers={
+                        "screen": "flawless",
+                        "body": "minor_scratches",
+                        "battery": "above_85",
+                        "camera": "working",
+                        "speaker": "working",
+                        "accessories": ["box", "charger"]
+                    },
+                    estimated_min_price=24500,
+                    estimated_max_price=27000,
+                    final_offer_price=26000,
+                    final_offer_notes="Flawless screen, 89% battery health. Accepted offer.",
+                    fulfilment_type=FulfilmentType.store_visit.value,
+                    slot_date=date.today(),
+                    slot_time="11:30 AM",
+                    status=SellRequestStatus.paid.value,
+                    payout_method="upi",
+                    payout_reference="UPI/2026/MYS/9880123456",
+                    paid_at=utc_now(),
+                )
+                session.add(sr)
+                session.flush()
+
+                # Add timeline steps
+                tl1 = SellRequestTimeline(
+                    request_id=sr.request_id,
+                    from_status=None,
+                    to_status=SellRequestStatus.submitted.value,
+                    actor_role="customer",
+                    notes="Sell request submitted for store visit at Chamundi Mobile Galleria."
+                )
+                tl2 = SellRequestTimeline(
+                    request_id=sr.request_id,
+                    from_status=SellRequestStatus.submitted.value,
+                    to_status=SellRequestStatus.store_confirmed.value,
+                    actor_role="vendor",
+                    notes="Store confirmed the appointment slot."
+                )
+                tl3 = SellRequestTimeline(
+                    request_id=sr.request_id,
+                    from_status=SellRequestStatus.store_confirmed.value,
+                    to_status=SellRequestStatus.inspected.value,
+                    actor_role="vendor",
+                    notes="15-point physical diagnostics completed. Screen perfect, minor body scuffs."
+                )
+                tl4 = SellRequestTimeline(
+                    request_id=sr.request_id,
+                    from_status=SellRequestStatus.inspected.value,
+                    to_status=SellRequestStatus.offer_revised.value,
+                    actor_role="vendor",
+                    notes="Final offer set to Rs. 26,000."
+                )
+                tl5 = SellRequestTimeline(
+                    request_id=sr.request_id,
+                    from_status=SellRequestStatus.offer_revised.value,
+                    to_status=SellRequestStatus.accepted.value,
+                    actor_role="customer",
+                    notes="Customer accepted final offer."
+                )
+                tl6 = SellRequestTimeline(
+                    request_id=sr.request_id,
+                    from_status=SellRequestStatus.accepted.value,
+                    to_status=SellRequestStatus.paid.value,
+                    actor_role="vendor",
+                    notes="Instant payout executed via UPI ref: UPI/2026/MYS/9880123456"
+                )
+                session.add_all([tl1, tl2, tl3, tl4, tl5, tl6])
+
+        # 8. Seed Sample Unassigned Home Pickup for Vendor Claim Testing
+        existing_pickup = session.query(SellRequest).filter_by(request_reference="SELL-MYS-002").first()
+        if not existing_pickup:
+            pu_imei = make_valid_imei("86420904", 77712)
+            pu = SellRequest(
+                request_reference="SELL-MYS-002",
+                customer_name="Sunita Rao",
+                customer_phone="+919844556677",
+                customer_email="sunita.rao@example.com",
+                customer_address="72, Saraswathipuram 5th Main, Mysuru",
+                pincode="570009",
+                store_id=None,  # Unassigned - available for any K.T. Street store to claim!
+                brand="Samsung",
+                model="Galaxy S23",
+                storage_gb=128,
+                imei=pu_imei,
+                condition_answers={
+                    "screen": "minor_scratches",
+                    "body": "good",
+                    "battery": "above_85",
+                    "camera": "working",
+                    "speaker": "working",
+                    "accessories": ["box"]
+                },
+                estimated_min_price=29000,
+                estimated_max_price=32000,
+                fulfilment_type=FulfilmentType.home_pickup.value,
+                slot_date=date.today() + timedelta(days=1),
+                slot_time="03:00 PM",
+                status=SellRequestStatus.submitted.value,
+            )
+            session.add(pu)
+            session.flush()
+            tl_pu = SellRequestTimeline(
+                request_id=pu.request_id,
+                from_status=None,
+                to_status=SellRequestStatus.submitted.value,
+                actor_role="customer",
+                notes="Home pickup requested in Saraswathipuram (570009). Available for store claiming."
+            )
+            session.add(tl_pu)
 
         session.commit()
         print("Database seeded successfully!")
