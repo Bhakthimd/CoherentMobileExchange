@@ -335,6 +335,84 @@
       "vendor_name": "Apex Mobile Distributors",
       "image": "images/redmi-note-13-pro.jpg",
       "updated_at": "2026-10-14T15:00:00Z"
+    },
+    {
+      "id": 23,
+      "brand": "Apple",
+      "model": "iPhone 18 Pro",
+      "price": 149999,
+      "storage": "256 GB",
+      "stock": 8,
+      "status": "Flagship",
+      "vendor_id": 3,
+      "vendor_name": "iStore India Authorized",
+      "image": "images/iphone15pro.jpg",
+      "updated_at": "2026-10-23T10:00:00Z"
+    },
+    {
+      "id": 24,
+      "brand": "Apple",
+      "model": "iPhone 18 Pro",
+      "price": 146999,
+      "storage": "256 GB",
+      "stock": 5,
+      "status": "Flagship",
+      "vendor_id": 1,
+      "vendor_name": "Chamundi Mobile Galleria",
+      "image": "images/iphone15pro.jpg",
+      "updated_at": "2026-10-23T10:30:00Z"
+    },
+    {
+      "id": 25,
+      "brand": "Apple",
+      "model": "iPhone 18",
+      "price": 84999,
+      "storage": "128 GB",
+      "stock": 10,
+      "status": "In Stock",
+      "vendor_id": 3,
+      "vendor_name": "iStore India Authorized",
+      "image": "images/iphone15.jpg",
+      "updated_at": "2026-10-23T11:00:00Z"
+    },
+    {
+      "id": 26,
+      "brand": "Google",
+      "model": "Pixel 9 Pro",
+      "price": 99999,
+      "storage": "256 GB",
+      "stock": 6,
+      "status": "In Stock",
+      "vendor_id": 2,
+      "vendor_name": "Apex Mobile Distributors",
+      "image": "images/galaxy-s24.jpg",
+      "updated_at": "2026-10-23T11:15:00Z"
+    },
+    {
+      "id": 27,
+      "brand": "Nothing",
+      "model": "Nothing Phone 2",
+      "price": 38999,
+      "storage": "256 GB",
+      "stock": 9,
+      "status": "In Stock",
+      "vendor_id": 5,
+      "vendor_name": "K.T. Street Refurb Studio",
+      "image": "images/oneplus12.jpg",
+      "updated_at": "2026-10-23T11:30:00Z"
+    },
+    {
+      "id": 28,
+      "brand": "Motorola",
+      "model": "Edge 50 Pro",
+      "price": 31999,
+      "storage": "256 GB",
+      "stock": 7,
+      "status": "In Stock",
+      "vendor_id": 4,
+      "vendor_name": "Mysuru Mobile Point",
+      "image": "images/oppo-reno12.jpg",
+      "updated_at": "2026-10-23T11:45:00Z"
     }
   ]
 }

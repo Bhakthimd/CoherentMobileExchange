@@ -249,6 +249,11 @@ def login():
         # Retrieve linked vendor if user is a vendor
         if not vendor and user.role == UserRole.vendor.value:
             vendor = db.query(Vendor).filter_by(user_id=user.user_id).first()
+            if not vendor:
+                vendor = db.query(Vendor).filter(
+                    (Vendor.contact_email.ilike(user.email)) |
+                    (Vendor.store_name.ilike(user.name))
+                ).first()
 
         vendor_id = vendor.vendor_id if vendor else None
         csrf_token = secrets.token_hex(32)

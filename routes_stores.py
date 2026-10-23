@@ -4,12 +4,12 @@ CoherentMobiles - Mysuru / K.T. Street Hub
 """
 
 from flask import Blueprint, jsonify, request
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, desc
 from database import SessionLocal
 import models
 from models import (
     Vendor, VendorApprovalStatus, InventoryUnit, UnitStatus,
-    ServiceablePincode, User, UserRole, utc_now
+    ServiceablePincode, StoreReview, User, UserRole, utc_now
 )
 from auth import login_required, role_required
 
@@ -20,11 +20,16 @@ stores_bp = Blueprint("stores", __name__, url_prefix="/api")
 def list_stores():
     """
     Returns list of verified partner stores on K.T. Street, Mysuru
-    with live open/closed status, inventory count, and coordinates.
+    with live open/closed status, inventory count, coordinates, and Trust Rule metrics.
+
+    Trust Rule:
+    'Customers only see stores with an average review of at least 4.0 from at least 3 reviews.
+     Hand-verified launch partners are shown while they collect their first reviews.'
     """
     search_q = request.args.get("search", "").strip().lower()
     service_filter = request.args.get("service", "").strip().lower()
     open_only = request.args.get("open_only", "").lower() in ("true", "1", "yes")
+    include_all = request.args.get("include_all", "").lower() in ("true", "1", "yes")
 
     db = SessionLocal()
     try:
@@ -57,6 +62,11 @@ def list_stores():
 
         for store in stores:
             store_data = store.to_dict()
+
+            # Trust rule enforcement for customer visibility
+            if not include_all and not store_data.get("trust_rule_passed", True):
+                continue
+
             # Count in-stock units
             in_stock_count = db.query(InventoryUnit).filter(
                 InventoryUnit.vendor_id == store.vendor_id,
@@ -75,6 +85,7 @@ def list_stores():
             "count": len(results),
             "area": "K.T. Street, Mysuru (PIN 570001)",
             "center": {"lat": 12.3060, "lng": 76.6548},
+            "trust_rule": "Min 4.0 avg rating from at least 3 reviews, or hand-verified launch partner.",
             "stores": results
         }), 200
     finally:
@@ -84,7 +95,8 @@ def list_stores():
 @stores_bp.route("/stores/<int:store_id>", methods=["GET"])
 def get_store_detail(store_id: int):
     """
-    Returns single store profile with opening hours table and in-stock devices.
+    Returns single store profile with opening hours table, customer reviews,
+    trust metrics, and in-stock devices.
     """
     db = SessionLocal()
     try:
@@ -108,7 +120,100 @@ def get_store_detail(store_id: int):
         store_data["inventory"] = [u.to_dict() for u in units]
         store_data["inventory_count"] = len(units)
 
+        # Fetch all customer reviews for this store
+        reviews = db.query(StoreReview).filter(
+            StoreReview.store_id == store.vendor_id
+        ).order_by(desc(StoreReview.created_at)).all()
+        store_data["reviews"] = [r.to_dict() for r in reviews]
+
         return jsonify({"success": True, "store": store_data}), 200
+    finally:
+        db.close()
+
+
+@stores_bp.route("/stores/<int:store_id>/reviews", methods=["GET"])
+def get_store_reviews(store_id: int):
+    """Returns all reviews for a specific K.T. Street partner store."""
+    db = SessionLocal()
+    try:
+        store = db.query(Vendor).filter_by(vendor_id=store_id).first()
+        if not store:
+            return jsonify({"success": False, "error": "Store not found"}), 404
+
+        reviews = db.query(StoreReview).filter(
+            StoreReview.store_id == store_id
+        ).order_by(desc(StoreReview.created_at)).all()
+
+        return jsonify({
+            "success": True,
+            "store_id": store_id,
+            "store_name": store.store_name or store.vendor_name,
+            "count": len(reviews),
+            "trust_metrics": store.get_trust_metrics(),
+            "reviews": [r.to_dict() for r in reviews]
+        }), 200
+    finally:
+        db.close()
+
+
+@stores_bp.route("/stores/<int:store_id>/reviews", methods=["POST"])
+def add_store_review(store_id: int):
+    """
+    Allows a customer to leave a review for a K.T. Street partner store.
+    Updates the store's average rating and trust rule metrics.
+    """
+    data = request.get_json(silent=True) or {}
+    name = (data.get("customer_name") or data.get("name") or "").strip()
+    phone = (data.get("customer_phone") or data.get("phone") or "").strip()
+    rating_raw = data.get("rating")
+    review_title = (data.get("review_title") or data.get("title") or "Verified Store Experience").strip()
+    review_text = (data.get("review_text") or data.get("comment") or "").strip()
+    device_tag = (data.get("device_tag") or data.get("device") or "K.T. Street Customer").strip()
+
+    if not name:
+        return jsonify({"success": False, "error": "Your name is required to post a review."}), 400
+
+    try:
+        rating_val = float(rating_raw)
+        if not (1.0 <= rating_val <= 5.0):
+            raise ValueError()
+    except Exception:
+        return jsonify({"success": False, "error": "Please provide a valid rating between 1 and 5."}), 400
+
+    db = SessionLocal()
+    try:
+        store = db.query(Vendor).filter_by(vendor_id=store_id).first()
+        if not store:
+            return jsonify({"success": False, "error": "Store not found."}), 404
+
+        review = StoreReview(
+            store_id=store_id,
+            customer_name=name,
+            customer_phone=phone or None,
+            rating=rating_val,
+            review_title=review_title,
+            review_text=review_text,
+            device_tag=device_tag,
+            is_verified_visit=True
+        )
+        db.add(review)
+        db.flush()
+
+        # Recalculate average rating on Vendor
+        all_reviews = db.query(StoreReview).filter_by(store_id=store_id).all()
+        avg_rating = round(sum(r.rating for r in all_reviews) / len(all_reviews), 2)
+        store.rating = avg_rating
+
+        db.commit()
+        db.refresh(review)
+        db.refresh(store)
+
+        return jsonify({
+            "success": True,
+            "message": f"Thank you! Your review for {store.store_name} has been published.",
+            "review": review.to_dict(),
+            "trust_metrics": store.get_trust_metrics()
+        }), 201
     finally:
         db.close()
 

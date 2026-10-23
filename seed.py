@@ -19,7 +19,7 @@ from models import (
     UnitImage, StockMovement, ServiceablePincode,
     PriceMatrix, SellRequest, SellRequestTimeline,
     Reservation, ReservationStatus, SellRequestStatus,
-    FulfilmentType, utc_now
+    FulfilmentType, StoreReview, utc_now
 )
 
 ph = PasswordHasher()
@@ -301,6 +301,26 @@ def seed_database():
             vendor_map[sdata["id"]] = vendor
             vendor_map[vcode] = vendor
 
+            # Also create legacy email alias if specified in data.json or tests
+            legacy_email_map = {
+                "IST-IND": "partner@istoreindia.com",
+                "APX-DST": "contact@apexmobiles.in",
+                "CR-DIR": "retail@coherentmobiles.com",
+                "NX-HUB": "sales@nexusgadgets.in"
+            }
+            legacy_email = legacy_email_map.get(vcode)
+            if legacy_email and not session.query(User).filter_by(email=legacy_email).first():
+                alias_u = User(
+                    name=vname,
+                    email=legacy_email,
+                    phone=f"+918000{idx:06d}",
+                    password_hash=ph.hash(VENDOR_DEFAULT_PASSWORD),
+                    address=sdata["address"],
+                    role=UserRole.vendor.value,
+                )
+                session.add(alias_u)
+                session.flush()
+
         # 4. Seed Brands, Series, Models, Variants from mobiles
         # Common TAC prefixes for TAC + sequence IMEIs
         tac_prefixes = [
@@ -469,20 +489,35 @@ def seed_database():
 
         # 6. Seed Price Matrix for Instant Valuations
         matrix_data = [
+            ("Apple", "iPhone 18 Pro", 256, 95000),
+            ("Apple", "iPhone 18", 128, 62000),
+            ("Apple", "iPhone 15 Pro", 256, 75000),
             ("Apple", "iPhone 15", 128, 46000),
             ("Apple", "iPhone 15", 256, 53000),
             ("Apple", "iPhone 14", 128, 36000),
             ("Apple", "iPhone 14", 256, 41000),
             ("Apple", "iPhone 13", 128, 28000),
             ("Apple", "iPhone 12", 128, 21000),
+            ("Samsung", "Galaxy S24 Ultra", 512, 85000),
+            ("Samsung", "Galaxy S24", 256, 52000),
             ("Samsung", "Galaxy S23 Ultra", 256, 55000),
             ("Samsung", "Galaxy S23", 128, 34000),
             ("Samsung", "Galaxy S22", 128, 24000),
+            ("Samsung", "Galaxy A55", 128, 22000),
             ("OnePlus", "12", 256, 38000),
             ("OnePlus", "11", 128, 27000),
+            ("OnePlus", "Nord 4", 128, 19000),
+            ("Google", "Pixel 9 Pro", 256, 58000),
             ("Google", "Pixel 8", 128, 32000),
             ("Google", "Pixel 7", 128, 22000),
+            ("Xiaomi", "14", 256, 35000),
             ("Xiaomi", "13 Pro", 256, 29000),
+            ("Xiaomi", "Redmi Note 13 Pro", 256, 18000),
+            ("Vivo", "V30", 256, 21000),
+            ("OPPO", "Reno 12", 256, 20000),
+            ("Realme", "GT 6", 256, 24000),
+            ("Nothing", "Nothing Phone 2", 256, 25000),
+            ("Motorola", "Edge 50 Pro", 256, 20000),
         ]
         for brand_m, model_m, storage_m, base_p in matrix_data:
             existing_pm = session.query(PriceMatrix).filter_by(
@@ -635,6 +670,110 @@ def seed_database():
                 notes="Home pickup requested in Saraswathipuram (570009). Available for store claiming."
             )
             session.add(tl_pu)
+
+        # 9. Seed Store Reviews & Ratings (Trust Rule Verification)
+        # Trust Rule: customers only see stores with an average review of at least 4.0 from at least 3 reviews.
+        # Hand-verified launch partners are shown while they collect their first reviews.
+        reviews_data = [
+            # Store 1: Chamundi Mobile Galleria (IST-IND)
+            (1, "Naveen Swamy", "+919845112233", 5.0, "Outstanding Experience on K.T. Street", "Got an iPhone with 100% battery health and original bill. Very trustworthy staff.", "iPhone 15 Pro"),
+            (1, "Ananya Hegde", "+919845223344", 5.0, "Super transparent pricing", "Inspected the device right in front of me at the counter. Battery health matched the app perfectly.", "iPhone 14"),
+            (1, "Karthik Mysore", "+919845334455", 5.0, "Reserved online & picked up in 2 hours", "Reserved for 24h via CoherentMobiles. Walked in and was out in 10 minutes with GST invoice.", "iPhone 15"),
+            (1, "Dr. Raghavendra", "+919845445566", 4.8, "Much safer than OLX", "Genuine showroom warranty provided. Hand-verified launch partner for a reason.", "iPhone 13"),
+
+            # Store 2: Cauvery Phone Junction (APX-DST)
+            (2, "Suresh Babu", "+919845556677", 5.0, "Fair exchange price on old phone", "Exchanged my old OnePlus for Galaxy S24. Fair valuation, no bargaining hassle.", "Galaxy S24"),
+            (2, "Meena Kumari", "+919845667788", 4.8, "Huge Android selection", "Great multi-brand selection on K.T. Street. Helpful and courteous counter staff.", "OnePlus 12"),
+            (2, "Vinay Gowda", "+919845778899", 4.7, "Superb Grade phone as described", "Phone condition was as described online (Superb grade). Battery health 96%.", "OnePlus Nord 4"),
+            (2, "Deepak M", "+919845889900", 4.6, "Good store with warranty", "Gave me 6 months warranty card with box and fast charger.", "Galaxy A55"),
+
+            # Store 3: Heritage Gadgets & Exchange (GRN-TEL)
+            (3, "Harish Bhat", "+919845990011", 4.9, "Instant cash payout in 15 mins", "Sold my used phone for cash in 15 minutes. Disbursed immediately via UPI.", "Sell Request"),
+            (3, "Savitha Patil", "+919845001122", 4.7, "Accurate online estimate", "Fair counter inspection. Matched the CoherentMobiles online price quote without deductions.", "Sell Request"),
+            (3, "Pooja Sharma", "+919845113355", 4.8, "Held device safely for 24h", "Reserved device was held safely for 24 hours until I arrived from Vijayanagar.", "Xiaomi 14"),
+
+            # Store 4: Mysuru Mobile Point (MMP-KTS)
+            (4, "Mahesh K", "+919845224466", 4.9, "Authentic refurbished deals", "Affordable refurbished phones with genuine bills and 6 months warranty.", "Redmi Note 13 Pro"),
+            (4, "Latha R", "+919845335577", 4.8, "Prime location near Central Market", "Authentic store near Central Market gate on K.T. Street. Very convenient.", "Vivo V30"),
+            (4, "Girish N", "+919845446688", 4.9, "Live diagnostic check", "Polite owner, showed diagnostic report on screen before purchase.", "Realme GT 6"),
+
+            # Store 5: K.T. Street Refurb Studio (KRS-KTS)
+            (5, "Vikram Seth", "+919845557799", 5.0, "Looks factory sealed!", "Like New condition phones only. Not a single microscopic scratch.", "Nothing Phone 2"),
+            (5, "Divya Prasad", "+919845668800", 5.0, "Best refurb experience in Mysuru", "1-year store warranty provided. Top rated flagship specialists.", "Galaxy S24 Ultra"),
+            (5, "Prateek Jain", "+919845779911", 4.9, "Clean GST invoice", "Clean invoice and GST bill provided. 10/10 recommend.", "iPhone 18 Pro"),
+        ]
+
+        for s_id, c_name, c_phone, rating_f, title_s, text_s, d_tag in reviews_data:
+            existing_rev = session.query(StoreReview).filter_by(
+                store_id=s_id, customer_name=c_name
+            ).first()
+            if not existing_rev:
+                session.add(StoreReview(
+                    store_id=s_id,
+                    customer_name=c_name,
+                    customer_phone=c_phone,
+                    rating=rating_f,
+                    review_title=title_s,
+                    review_text=text_s,
+                    device_tag=d_tag,
+                    is_verified_visit=True
+                ))
+        session.flush()
+
+        # Recalculate average rating on all stores
+        for s_idx in range(1, 6):
+            st = session.query(Vendor).filter_by(vendor_id=s_idx).first()
+            if st:
+                s_revs = session.query(StoreReview).filter_by(store_id=s_idx).all()
+                if s_revs:
+                    st.rating = round(sum(r.rating for r in s_revs) / len(s_revs), 2)
+                    st.is_hand_verified = True
+        session.flush()
+
+        # 10. Seed Sample Active 24-Hour Reservations with Customer Phone Numbers
+        sample_unit_1 = session.query(InventoryUnit).filter(
+            InventoryUnit.vendor_id == 1,
+            InventoryUnit.status == UnitStatus.in_stock.value
+        ).first()
+        if sample_unit_1:
+            existing_res_1 = session.query(Reservation).filter_by(reservation_reference="RES-MYS-77001").first()
+            if not existing_res_1:
+                sample_unit_1.status = UnitStatus.reserved.value
+                res_1 = Reservation(
+                    reservation_reference="RES-MYS-77001",
+                    unit_id=sample_unit_1.unit_id,
+                    customer_name="Ramesh Gowda",
+                    customer_phone="+919845099881",
+                    customer_email="ramesh.gowda@example.com",
+                    store_id=1,
+                    reserved_at=utc_now(),
+                    expires_at=utc_now() + timedelta(hours=22),
+                    status=ReservationStatus.active.value,
+                    notes="Customer visiting Chamundi Mobile Galleria counter today at 4:30 PM."
+                )
+                session.add(res_1)
+
+        sample_unit_2 = session.query(InventoryUnit).filter(
+            InventoryUnit.vendor_id == 2,
+            InventoryUnit.status == UnitStatus.in_stock.value
+        ).first()
+        if sample_unit_2:
+            existing_res_2 = session.query(Reservation).filter_by(reservation_reference="RES-MYS-77002").first()
+            if not existing_res_2:
+                sample_unit_2.status = UnitStatus.reserved.value
+                res_2 = Reservation(
+                    reservation_reference="RES-MYS-77002",
+                    unit_id=sample_unit_2.unit_id,
+                    customer_name="Pooja Nandakumar",
+                    customer_phone="+919880144556",
+                    customer_email="pooja.nanda@example.com",
+                    store_id=2,
+                    reserved_at=utc_now(),
+                    expires_at=utc_now() + timedelta(hours=18),
+                    status=ReservationStatus.active.value,
+                    notes="Hold for inspection. Customer requested phone battery test at counter."
+                )
+                session.add(res_2)
 
         session.commit()
         print("Database seeded successfully!")

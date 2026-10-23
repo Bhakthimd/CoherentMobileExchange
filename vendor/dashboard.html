@@ -61,6 +61,27 @@
           <div style="padding: 16px 24px; font-size:13.5px; color:#92400e;" id="lowStockDetails"></div>
         </div>
 
+        <!-- Monetization & Plan Tier Bar -->
+        <div style="background: linear-gradient(135deg, #0f172a, #1e293b); color: #fff; border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: gap: 16px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="background: #d6336c; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 12px; text-transform: uppercase;">Partner Store Plan</span>
+              <strong style="font-size: 15px;">₹999 / month (First 3 Months Free)</strong>
+            </div>
+            <div style="font-size: 12.5px; color: #94a3b8; margin-top: 4px;">
+              Walk-in completed reservation: <strong>₹99</strong> &bull; Completed sell or exchange: <strong>₹149</strong> &bull; Trust Rule: <strong>Min 4.0 ★ (Verified)</strong>
+            </div>
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <a href="reservations.html" class="btn btn-sm" style="background:#2563eb; color:#fff;">
+              <i class="fa-solid fa-stopwatch"></i> View Holds (${VendorApp.currentVendor?.vendor_name || 'Store'})
+            </a>
+            <a href="sell-requests.html" class="btn btn-sm" style="background:#10b981; color:#fff;">
+              <i class="fa-solid fa-hand-holding-dollar"></i> Sell Requests Inbox
+            </a>
+          </div>
+        </div>
+
         <!-- Quick Actions & Recent Orders -->
         <div class="card">
           <div class="card-header">
@@ -99,6 +120,7 @@
     </main>
   </div>
 
+  <script src="/customer/universal-bar.js"></script>
   <script src="vendor.js"></script>
   <script>
     async function loadDashboardData() {

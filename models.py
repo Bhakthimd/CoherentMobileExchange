@@ -144,6 +144,7 @@ class Vendor(Base):
     buyback_enabled = Column(Boolean, default=True, server_default="true")
     store_photos = Column(JSON, nullable=True)
     google_maps_url = Column(String(255), nullable=True)
+    is_hand_verified = Column(Boolean, default=True, server_default="true")
 
     # Relationships
     user = relationship("User", back_populates="vendor")
@@ -153,6 +154,33 @@ class Vendor(Base):
     stock_movements = relationship("StockMovement", back_populates="vendor")
     sell_requests = relationship("SellRequest", back_populates="store", foreign_keys="SellRequest.store_id")
     reservations = relationship("Reservation", back_populates="store", foreign_keys="Reservation.store_id")
+    reviews = relationship("StoreReview", back_populates="store", cascade="all, delete-orphan", order_by="desc(StoreReview.created_at)")
+
+    def get_trust_metrics(self):
+        """
+        Trust rule implementation from Mysuru K.T. Street business plan:
+        'Customers only see stores with an average review of at least 4.0 from at least 3 reviews.
+        Hand-verified launch partners are shown while they collect their first reviews.'
+        """
+        revs = self.reviews or []
+        count = len(revs)
+        if count > 0:
+            avg = round(sum(float(r.rating) for r in revs) / count, 1)
+        else:
+            avg = float(self.rating) if self.rating is not None else 4.8
+
+        is_launch_partner = bool(self.is_hand_verified)
+        is_trust_qualified = is_launch_partner or (count >= 3 and avg >= 4.0)
+
+        badge = "Hand-Verified Launch Partner" if is_launch_partner else ("Top Rated Store" if is_trust_qualified else "Collecting Reviews")
+
+        return {
+            "review_count": count,
+            "average_rating": avg,
+            "is_hand_verified": is_launch_partner,
+            "is_trust_qualified": is_trust_qualified,
+            "trust_badge": badge
+        }
 
     def is_open_now(self, now_dt=None):
         if not self.opening_hours or not isinstance(self.opening_hours, dict):
@@ -189,6 +217,8 @@ class Vendor(Base):
         lng = float(self.longitude) if self.longitude is not None else 76.6551
         maps_url = self.google_maps_url or f"https://www.google.com/maps/dir/?api=1&destination={lat},{lng}"
 
+        trust = self.get_trust_metrics()
+
         return {
             "vendor_id": self.vendor_id,
             "id": self.vendor_id,  # backward compatibility
@@ -223,9 +253,44 @@ class Vendor(Base):
             "google_maps_url": maps_url,
             "gst_number": self.gst_number,
             "logo_url": self.logo_url,
-            "rating": float(self.rating) if self.rating is not None else 4.8,
+            "rating": trust["average_rating"],
+            "review_count": trust["review_count"],
+            "is_hand_verified": trust["is_hand_verified"],
+            "trust_rule_passed": trust["is_trust_qualified"],
+            "trust_badge": trust["trust_badge"],
             "status": self.status,
             "approval_status": self.approval_status,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class StoreReview(Base):
+    """Customer ratings and reviews on verified K.T. Street partner stores."""
+    __tablename__ = "store_reviews"
+
+    review_id = Column(Integer, primary_key=True, autoincrement=True)
+    store_id = Column(Integer, ForeignKey("vendors.vendor_id", ondelete="CASCADE"), nullable=False, index=True)
+    customer_name = Column(String(100), nullable=False)
+    customer_phone = Column(String(20), nullable=True)
+    rating = Column(Float, nullable=False, default=5.0)  # 1.0 to 5.0
+    review_title = Column(String(150), nullable=True)
+    review_text = Column(Text, nullable=True)
+    device_tag = Column(String(100), nullable=True)  # e.g. "Reserved iPhone 18 Pro", "Sold OnePlus 12"
+    is_verified_visit = Column(Boolean, default=True, server_default="true")
+    created_at = Column(DateTime(timezone=True), default=utc_now)
+
+    store = relationship("Vendor", back_populates="reviews")
+
+    def to_dict(self):
+        return {
+            "review_id": self.review_id,
+            "store_id": self.store_id,
+            "customer_name": self.customer_name,
+            "rating": round(float(self.rating), 1),
+            "review_title": self.review_title or "Verified Store Experience",
+            "review_text": self.review_text or "",
+            "device_tag": self.device_tag or "K.T. Street Walk-in Customer",
+            "is_verified_visit": bool(self.is_verified_visit),
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
@@ -235,13 +300,32 @@ class Brand(Base):
 
     brand_id = Column(Integer, primary_key=True, autoincrement=True)
     brand_name = Column(String(100), unique=True, nullable=False)
+    logo_url = Column(String(255), nullable=True)
 
     series = relationship("PhoneSeries", back_populates="brand", cascade="all, delete-orphan")
 
     def to_dict(self):
+        bname = self.brand_name.strip()
+        slug = bname.lower().replace(" ", "").replace("-", "")
+        # High quality official logos / SVGs for mobile brands
+        brand_logos = {
+            "apple": "https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg",
+            "samsung": "https://upload.wikimedia.org/wikipedia/commons/2/24/Samsung_Logo.svg",
+            "oneplus": "https://upload.wikimedia.org/wikipedia/commons/f/f8/OP_LU_Reg_1L_RGB_red_pos.svg",
+            "xiaomi": "https://upload.wikimedia.org/wikipedia/commons/2/29/Xiaomi_logo.svg",
+            "vivo": "https://upload.wikimedia.org/wikipedia/commons/e/e5/Vivo_mobile_logo.png",
+            "oppo": "https://upload.wikimedia.org/wikipedia/commons/0/02/OPPO_LOGO_2019.svg",
+            "realme": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1d/Realme_logo.svg/1024px-Realme_logo.svg.png",
+            "google": "https://upload.wikimedia.org/wikipedia/commons/2/2f/Google_2015_logo.svg",
+            "googlepixel": "https://upload.wikimedia.org/wikipedia/commons/2/2f/Google_2015_logo.svg",
+            "nothing": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c9/Nothing_Logo.svg/1200px-Nothing_Logo.svg.png",
+            "motorola": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Motorola_new_logo.svg/1200px-Motorola_new_logo.svg.png"
+        }
+        logo = self.logo_url or brand_logos.get(slug) or f"https://placehold.co/120x40/png?text={bname}"
         return {
             "brand_id": self.brand_id,
             "brand_name": self.brand_name,
+            "logo_url": logo,
         }
 
 

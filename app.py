@@ -479,6 +479,7 @@ def api_get_stats():
         ).scalar()
 
         return jsonify({
+            "success": True,
             "total_products": total_products,
             "total_vendors": total_vendors,
             "in_stock_products": in_stock_products,

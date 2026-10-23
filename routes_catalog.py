@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from sqlalchemy import or_, desc, asc
+from sqlalchemy import or_, desc, asc, func
 
 from database import SessionLocal
 import models
@@ -115,13 +115,122 @@ def get_catalog_unit(unit_id: int):
 
 @catalog_bp.route("/api/brands", methods=["GET"])
 def get_brands():
-    """List all phone brands with in-stock unit counts."""
+    """List all phone brands with logos and in-stock unit counts."""
     db = SessionLocal()
     try:
         brands = db.query(Brand).order_by(Brand.brand_name).all()
+        result = []
+        for b in brands:
+            b_dict = b.to_dict()
+            # Count in-stock units for this brand
+            count = db.query(InventoryUnit).join(InventoryUnit.variant).join(PhoneVariant.model).join(PhoneModel.series).filter(
+                PhoneSeries.brand_id == b.brand_id,
+                InventoryUnit.status == UnitStatus.in_stock.value,
+                InventoryUnit.deleted_at.is_(None)
+            ).count()
+            b_dict["in_stock_count"] = count
+            result.append(b_dict)
+
         return jsonify({
             "success": True,
-            "brands": [b.to_dict() for b in brands]
+            "brands": result
+        }), 200
+    finally:
+        db.close()
+
+
+@catalog_bp.route("/api/catalog/latest", methods=["GET"])
+def get_latest_arrivals():
+    """
+    Returns the latest phones stores have added to K.T. Street inventory.
+    """
+    limit = min(50, max(1, int(request.args.get("limit", 12))))
+    db = SessionLocal()
+    try:
+        units = db.query(InventoryUnit).join(InventoryUnit.vendor).filter(
+            InventoryUnit.status == UnitStatus.in_stock.value,
+            InventoryUnit.deleted_at.is_(None),
+            Vendor.approval_status == VendorApprovalStatus.approved.value
+        ).order_by(desc(InventoryUnit.created_at)).limit(limit).all()
+
+        return jsonify({
+            "success": True,
+            "count": len(units),
+            "items": [u.to_dict() for u in units]
+        }), 200
+    finally:
+        db.close()
+
+
+@catalog_bp.route("/api/catalog/stores-for-model", methods=["GET"])
+def get_stores_for_model():
+    """
+    Given a phone query/model (e.g. 'iPhone 18 Pro' or 'Galaxy S24'),
+    returns all K.T. Street stores that have it in stock with their prices,
+    condition grade, battery health, and warranty.
+    """
+    model_query = (request.args.get("query") or request.args.get("model") or "").strip()
+    if not model_query:
+        return jsonify({"success": False, "error": "Query parameter is required"}), 400
+
+    db = SessionLocal()
+    try:
+        units = db.query(InventoryUnit).join(InventoryUnit.vendor).join(InventoryUnit.variant).join(PhoneVariant.model).join(PhoneModel.series).join(PhoneSeries.brand).filter(
+            InventoryUnit.status == UnitStatus.in_stock.value,
+            InventoryUnit.deleted_at.is_(None),
+            Vendor.approval_status == VendorApprovalStatus.approved.value,
+            or_(
+                PhoneModel.model_name.ilike(f"%{model_query}%"),
+                func.concat(Brand.brand_name, ' ', PhoneModel.model_name).ilike(f"%{model_query}%")
+            )
+        ).all()
+
+        stores_map = {}
+        for u in units:
+            store_id = u.vendor_id
+            if store_id not in stores_map:
+                v = u.vendor
+                stores_map[store_id] = {
+                    "store_id": v.vendor_id,
+                    "store_name": v.store_name or v.vendor_name,
+                    "store_address": v.address_line or v.address,
+                    "store_landmark": v.landmark,
+                    "store_phone": v.contact_phone,
+                    "store_whatsapp": v.whatsapp_number,
+                    "rating": float(v.rating) if v.rating else 4.8,
+                    "is_open": v.is_open_now(),
+                    "trust_metrics": v.get_trust_metrics(),
+                    "directions_url": v.google_maps_url,
+                    "available_units": []
+                }
+            stores_map[store_id]["available_units"].append({
+                "unit_id": u.unit_id,
+                "device_name": u.to_dict().get("device_name"),
+                "storage": u.variant.storage_gb if u.variant else 128,
+                "color": u.variant.color if u.variant else "Standard",
+                "condition_grade": u.condition_grade,
+                "battery_health": u.battery_health,
+                "warranty": f"{u.warranty_months} Months",
+                "selling_price": float(u.selling_price),
+                "mrp": float(u.mrp) if u.mrp else float(u.selling_price) * 1.15,
+                "notes": u.notes,
+                "image": u.to_dict().get("image")
+            })
+
+        store_list = list(stores_map.values())
+        # Sort by lowest available price
+        for s in store_list:
+            s["available_units"].sort(key=lambda x: x["selling_price"])
+            s["lowest_price"] = s["available_units"][0]["selling_price"] if s["available_units"] else 0
+
+        store_list.sort(key=lambda x: x["lowest_price"])
+
+        return jsonify({
+            "success": True,
+            "query": model_query,
+            "total_stores": len(store_list),
+            "total_units": len(units),
+            "stores": store_list
         }), 200
     finally:
         db.close()

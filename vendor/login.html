@@ -97,15 +97,33 @@
     </div>
 
     <div class="demo-credentials-box">
-      <strong>Demo Approved Logins:</strong><br>
-      • Store Code: <code>IST-IND</code> | Pwd: <code>Vendor@123</code><br>
-      • Store Code: <code>CR-DIR</code> | Pwd: <code>Vendor@123</code><br>
-      • Pending Store: <code>NX-HUB</code> | Pwd: <code>Vendor@123</code>
+      <strong style="display:block; margin-bottom:8px;">⚡ 1-Click Demo Login (K.T. Street Stores):</strong>
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <button type="button" class="btn btn-sm btn-secondary" style="justify-content:flex-start; text-align:left; font-size:12px; padding:6px 10px; cursor:pointer;" onclick="fillAndLogin('IST-IND', 'Vendor@123')">
+          🏪 <strong>Chamundi Mobile Galleria</strong> (<code>IST-IND</code>)
+        </button>
+        <button type="button" class="btn btn-sm btn-secondary" style="justify-content:flex-start; text-align:left; font-size:12px; padding:6px 10px; cursor:pointer;" onclick="fillAndLogin('APX-DST', 'Vendor@123')">
+          🏪 <strong>Cauvery Phone Junction</strong> (<code>APX-DST</code>)
+        </button>
+        <button type="button" class="btn btn-sm btn-secondary" style="justify-content:flex-start; text-align:left; font-size:12px; padding:6px 10px; cursor:pointer;" onclick="fillAndLogin('KRS-KTS', 'Vendor@123')">
+          🏪 <strong>K.T. Street Refurb Studio</strong> (<code>KRS-KTS</code>)
+        </button>
+        <button type="button" class="btn btn-sm btn-secondary" style="justify-content:flex-start; text-align:left; font-size:12px; padding:6px 10px; cursor:pointer;" onclick="fillAndLogin('admin@coherent.test', 'Admin@123')">
+          ⚙️ <strong>System Administrator</strong> (<code>admin@coherent.test</code>)
+        </button>
+      </div>
     </div>
   </div>
 
+  <script src="/customer/universal-bar.js"></script>
   <script src="vendor.js"></script>
   <script>
+    function fillAndLogin(login, pwd) {
+      document.getElementById("loginInput").value = login;
+      document.getElementById("passwordInput").value = pwd;
+      document.getElementById("vendorLoginForm").dispatchEvent(new Event('submit'));
+    }
+
     async function handleLogin(e) {
       e.preventDefault();
       const login = document.getElementById("loginInput").value.trim();

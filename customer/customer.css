@@ -1,4 +1,203 @@
-/* CoherentMobiles Customer Enhancements */
+/* ================= UNIVERSAL SINGLE-LOCALHOST TOP BAR ================= */
+.cm-universal-top-bar {
+  background: #0f172a;
+  color: #f8fafc;
+  padding: 8px 16px;
+  font-size: 12px;
+  border-bottom: 1px solid #334155;
+  position: sticky;
+  top: 0;
+  z-index: 99999;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+.cm-top-bar-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.cm-top-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+}
+.cm-live-dot {
+  color: #10b981;
+  font-size: 14px;
+  animation: cmPulse 2s infinite;
+}
+.cm-top-tag {
+  background: #1e293b;
+  color: #94a3b8;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  border: 1px solid #334155;
+}
+.cm-top-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cm-top-btn {
+  color: #cbd5e1;
+  text-decoration: none;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 12px;
+  transition: all 0.15s;
+  background: transparent;
+  border: 1px solid transparent;
+}
+.cm-top-btn:hover {
+  background: #1e293b;
+  color: #ffffff;
+  border-color: #475569;
+}
+.cm-top-btn.active {
+  background: #d6336c;
+  color: #ffffff;
+  border-color: #d6336c;
+  box-shadow: 0 2px 8px rgba(214, 51, 108, 0.4);
+}
+.cm-role-selector {
+  background: #1e293b;
+  color: #f1f5f9;
+  border: 1.5px solid #475569;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  outline: none;
+  cursor: pointer;
+}
+.cm-role-selector:focus {
+  border-color: #d6336c;
+}
+@keyframes cmPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.9); }
+}
+
+/* ================= BRAND LOGO SHOWCASE & KT STREET FEATURES ================= */
+.cm-brand-showcase {
+  background: #ffffff;
+  border: 1px solid #f1d7e2;
+  border-radius: 18px;
+  padding: 20px 24px;
+  margin: 20px 0 30px;
+  box-shadow: 0 10px 30px rgba(120, 25, 65, 0.05);
+}
+.cm-brand-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.cm-brand-header h3 {
+  font-size: 16px;
+  font-weight: 800;
+  color: #26131c;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cm-brand-grid {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scroll-behavior: smooth;
+}
+.cm-brand-grid::-webkit-scrollbar { height: 6px; }
+.cm-brand-grid::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 4px; }
+.cm-brand-card {
+  min-width: 125px;
+  flex: 0 0 auto;
+  background: #fdfafb;
+  border: 1.5px solid #ebdbe2;
+  border-radius: 14px;
+  padding: 12px 14px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.cm-brand-card:hover {
+  transform: translateY(-3px);
+  border-color: #d6336c;
+  background: #fff0f6;
+  box-shadow: 0 8px 20px rgba(214, 51, 108, 0.12);
+}
+.cm-brand-card.active {
+  border-color: #d6336c;
+  background: #ffe5ef;
+  box-shadow: 0 4px 15px rgba(214, 51, 108, 0.2);
+}
+.cm-brand-logo-img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.06));
+}
+.cm-brand-name {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #26131c;
+}
+.cm-brand-count {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #d6336c;
+  background: #fff;
+  border: 1px solid #f8c9dc;
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+/* Stores Stock Comparison Cards */
+.cm-store-stock-item {
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: all 0.15s;
+  background: #ffffff;
+}
+.cm-store-stock-item:hover {
+  border-color: #d6336c;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+.cm-trust-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 800;
+}
+.cm-trust-launch {
+  background: #fdf2f8;
+  color: #9d174d;
+  border: 1px solid #fbcfe8;
+}
+.cm-trust-rated {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
 
 .catalog-unit-badge {
   display: inline-flex;
